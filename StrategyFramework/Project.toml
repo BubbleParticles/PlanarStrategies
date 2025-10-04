@@ -1,0 +1,13 @@
+name = "StrategyFramework"
+uuid = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+version = "0.1.0"
+
+[deps]
+Optim = "01837fd2-c099-442f-ae89-75fa208aad36"
+Planar = "646fb1a4-6797-441d-ad18-3bdbde2eb86b"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+StrategyTools = "bc793e09-ff97-408c-9766-388aa928ad5c"
+
+[StrategyFramework]
+include_file = "src/StrategyFramework.jl"
+margin = "Isolated"

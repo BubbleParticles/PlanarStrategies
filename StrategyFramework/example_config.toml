@@ -1,0 +1,41 @@
+# StrategyFramework Example Configuration File
+
+# Trading parameters
+signal_lifetime = 0.2
+def_lev = 1.0
+
+# Risk management
+reserve_cash_pct = 0.1
+peak_cash = 0.0
+
+# Execution settings
+ordertype = "gtc"
+ismake = true
+
+# Environment settings
+throttle = 10  # seconds
+sync_history_limit = 0
+watch_idle_timeout = 86400  # 1 day in seconds
+
+# Trade timing
+trade_cooldown = 60  # 1 minute in seconds
+order_timeout = 120  # 2 minutes in seconds
+
+# Environment-specific configurations
+[environments.development]
+signal_lifetime = 0.1
+def_lev = 0.5
+reserve_cash_pct = 0.2
+_comment = "Conservative settings for development"
+
+[environments.production]
+signal_lifetime = 0.2
+def_lev = 2.0
+reserve_cash_pct = 0.05
+_comment = "Optimized settings for production"
+
+[environments.testing]
+signal_lifetime = 0.05
+def_lev = 0.1
+reserve_cash_pct = 0.5
+_comment = "Very conservative settings for testing"
