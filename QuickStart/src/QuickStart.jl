@@ -52,60 +52,14 @@ const SC{E,M,R} = Strategy{M,STRATEGY_MODULE,E,R}
     ratio::DFT = 0.0
 end
 
-base_params = (
-    signal_lifetime=0.2,
-    trade_cooldown=Minute(1),
-    order_timeout=Minute(2),
-    buy_trigger=1.6,
-    sell_trigger=0.8,
-    def_lev=1.0,
-    lsr_buy=0.5,
-    lsr_sell=0.5,
-    pnl_n=14,
-)
-
-high_profit_params = (
-    signal_lifetime=0.4,
-    trade_cooldown=1.0,
-    order_timeout=2.0,
-    buy_trigger=1.5,
-    sell_trigger=0.6,
-    def_lev=1.0,
-    lsr_buy=0.4,
-    lsr_sell=0.4,
-    pnl_n=14.0,
-)
-
-high_sharpe_params = (
-    signal_lifetime=0.4,
-    trade_cooldown=1.0,
-    order_timeout=2.0,
-    buy_trigger=1.4,
-    sell_trigger=0.8,
-    def_lev=1.1,
-    lsr_buy=0.4,
-    lsr_sell=0.5,
-    pnl_n=14.0,
-)
-
-best_params = (
-    signal_lifetime=0.2,
-    trade_cooldown=3.0,
-    order_timeout=2.0,
-    buy_trigger=1.6,
-    sell_trigger=0.9,
-    def_lev=1.0,
-    lsr_buy=0.6,
-    lsr_sell=0.5,
-    pnl_n=13.0,
-)
-
 @enum ParamsFrom begin
     cache
     ref
 end
 
-get_params_tuple() = let k = get(ENV, "QUICKSTART_PARAMS_KEY", "best_params")
+default_params = ()
+
+get_params_tuple() = let k = get(ENV, "QUICKSTART_PARAMS_KEY", "default_params")
     getglobal(@__MODULE__, Symbol(k))
 end
 
@@ -113,14 +67,21 @@ function call!(s::SC, ::ResetStrategy)
     @ldebug 1 "_reset!"
     attrs = s.attrs
 
-    get!(attrs, :isopt, false) # true during optimization
-    # Assign non-param defaults directly
-    attrs[:throttle] = Second(10)
-    attrs[:sync_history_limit] = 0
-    attrs[:replay_from_trace] = false
-    attrs[:watch_idle_timeout] = Second(Day(1))
+    # for backtesting / optimization
     attrs[:sim_fees_taker] = 0.006
     attrs[:sim_fees_maker] = 0.001
+    get!(attrs, :isopt, false) # true during optimization
+
+    # Assign non-param defaults directly
+    attrs[:throttle] = Second(10)
+    # don't sync any closed orders on live start
+    attrs[:sync_history_limit] = 0
+    # don't replay execution history from storage on start
+    attrs[:replay_from_trace] = false
+    # each watcher will stop watching for new events after 1 day of inactivity
+    attrs[:watch_idle_timeout] = Second(Day(1))
+
+    # which order type to use when executing orders
     attrs[:ordertype] = :gtc
     attrs[:peak_cash] = 0.0
     # fixed cash to reserve for committment/fees
@@ -141,18 +102,15 @@ function call!(s::SC, ::ResetStrategy)
     kama_kwargs = (; period=60, slow_ema_constant_period=15, fast_ema_constant_period=120)
     attrs[:buysigs] = Dict(ai => oti.KAMA{DFT}(; kama_kwargs...) for ai in s.universe)
     attrs[:sellsigs] = Dict(ai => oti.KAMA{DFT}(; kama_kwargs...) for ai in s.universe)
+    attrs[:pnl_n] = 21
 
     call!(s, InitSimWarmup())
-    # initslope!(s)
-    # initcd!(s)
-
     apply_params!(s; from=ref)
 
     initpnl!(s; n=s.pnl_n)
     initlev!(s)
     initdata!(s)
     setsignals!(s)
-    # Note: signals!(s, Val(:warmup)) removed - users should call this in their setsignals! if needed
 end
 
 # setsignals! function is now defined in signal_placeholders.jl

@@ -40,7 +40,7 @@ end
 function isbuy(s::SC, ai, ats)
     # Placeholder implementation - always returns false (no buy signals)
     # Users should customize this function to implement their own buy signal logic
-    return false
+    return rand(Bool)
 end
 
 """
@@ -79,7 +79,7 @@ end
 function issell(s::SC, ai, ats)
     # Placeholder implementation - always returns false (no sell signals)
     # Users should customize this function to implement their own sell signal logic
-    return false
+    return rand(Bool)
 end
 
 """
@@ -110,6 +110,6 @@ function setsignals!(s)
     # Users can customize this function to set up their own signals/indicators
     attrs = s.attrs
     attrs[:signals_set] = false
-    # Example: attrs[:signals_def] = signals(...)
+    # Example: attrs[:signals_def] = sigdefs = signals(...)
     # Example: inittrends!(s, keys(sigdefs.defs))
 end
