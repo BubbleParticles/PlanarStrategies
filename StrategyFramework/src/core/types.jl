@@ -2,9 +2,14 @@
 
 using Dates
 using Planar
+using StrategyTools: StrategyTools as stt
+using .stt: oti
 
 # Generic strategy type that can be used by any strategy
 const SC{E,M,R} = Strategy{M,STRATEGY_MODULE,E,R}
+
+const MovingExtrema = stt.MovingExtrema
+const WMA = oti.WMA
 
 # Environment configuration constants
 const ASSETS_CT = Dict{Tuple{Symbol,Symbol},Vector{String}}()

@@ -10,6 +10,7 @@ const MARGIN = Isolated
 const EXC = :phemex
 const TF = tf"1m"
 const THREADSAFE = Ref(true)
+const STRATEGY_MODULE = nameof(@__MODULE__)
 
 @strategyenv!
 @contractsenv!

@@ -36,7 +36,8 @@ struct WatchOHLCV end
 # Mock functions
 id(s::MockStrategy) = "test_strategy_$(hash(s))"
 available(tf::Symbol, ts::DateTime) = ts
-get_current_assets() = ["BTC/USDT", "ETH/USDT"]
+get_current_assets() = ["BTC/USDT:USDT", "ETH/USDT:USDT", "SOL/USDT:USDT"]
+strategy_assets() = get_current_assets()
 
 # Include the types and initialization modules for testing
 include("../src/core/types.jl")
@@ -218,7 +219,7 @@ include("../src/core/initialization.jl")
         end
         
         # Mock default_load function
-        default_load(module, type, config) = nothing
+        default_load(mod_, type, config) = nothing
         
         config = MockConfig()
         call!(MockStrategyType, config, LoadStrategy())
@@ -286,7 +287,7 @@ include("../src/core/initialization.jl")
         
         # Test StrategyMarkets callback
         markets = call!(MockStrategyType, StrategyMarkets())
-        @test markets == ["BTC/USDT", "ETH/USDT"]
+        @test markets == ["BTC/USDT:USDT", "ETH/USDT:USDT", "SOL/USDT:USDT"]
     end
     
     @testset "poll_strategy! function" begin

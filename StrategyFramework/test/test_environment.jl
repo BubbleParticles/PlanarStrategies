@@ -203,10 +203,12 @@ using StrategyFramework
             @test haskey(ASSETS_CT, (:test, :binance))
             
             # Check default asset contents
-            @test ASSETS_CT[(:default, :phemex)] == ["BTC/USDT", "ETH/USDT"]
-            @test ASSETS_CT[(:default, :binance)] == ["BTC/USDT", "ETH/USDT"]
-            @test ASSETS_CT[(:test, :phemex)] == ["BTC/USDT"]
-            @test ASSETS_CT[(:test, :binance)] == ["BTC/USDT"]
+            expected_default = ["BTC/USDT:USDT", "ETH/USDT:USDT", "SOL/USDT:USDT"]
+            expected_primary = ["BTC/USDT:USDT"]
+            @test ASSETS_CT[(:default, :phemex)] == expected_default
+            @test ASSETS_CT[(:default, :binance)] == expected_default
+            @test ASSETS_CT[(:test, :phemex)] == expected_primary
+            @test ASSETS_CT[(:test, :binance)] == expected_primary
             
             # Test initialization with existing assets (should not overwrite)
             setassets!(:custom, :custom_exchange, ["CUSTOM/PAIR"])

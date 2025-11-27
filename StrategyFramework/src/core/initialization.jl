@@ -4,7 +4,7 @@ using Dates
 using Planar
 
 # Import strategy lifecycle types and functions
-using Planar.Strategies: LoadStrategy, ResetStrategy, StartStrategy, StopStrategy, WarmupPeriod, StrategyMarkets, default_load
+using Planar.Engine.Strategies: LoadStrategy, ResetStrategy, StartStrategy, StopStrategy, WarmupPeriod, StrategyMarkets, default_load
 using Planar.Executors: WatchOHLCV
 
 """
@@ -354,7 +354,7 @@ Strategy markets callback - returns the list of market symbols for the strategy.
 Uses the current asset configuration from environment settings.
 """
 function call!(::Union{<:SC,Type{<:SC}}, ::StrategyMarkets)
-    markets = get_current_assets()
+    markets = strategy_assets()
     @debug "Strategy markets configured" markets=markets
     markets
 end
