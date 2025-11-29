@@ -17,7 +17,11 @@ const STRATEGY_MODULE = nameof(@__MODULE__)
 
 # Core modules - will be implemented in subsequent tasks
 include("core/types.jl")
-include("core/environment.jl") 
+include("core/environment.jl")
+
+# Interface modules - must be loaded before initialization
+include("interfaces/signal_interface.jl")
+
 include("core/initialization.jl")
 include("core/parameters.jl")
 include("core/configuration.jl")
@@ -40,7 +44,6 @@ include("utilities/logging_utils.jl")
 include("utilities/profiling_utils.jl")
 
 # Interface modules - will be implemented in subsequent tasks
-include("interfaces/signal_interface.jl")
 include("interfaces/strategy_callbacks.jl")
 
 # Integration modules
@@ -59,7 +62,7 @@ export call!
 # Export utility functions
 export calculate_position_adjustment, get_target_position_size, trade_amount
 export closeposition!, manage_cash_reserves, manage_collateral, peak_cash!, calculate_drawdown, check_risk_limits
-export track_pnl!, track_trends!, initialize_ohlcv!
+export track_pnl!, track_trends!, initohlcv!
 export liveasync, livelock, livesleep
 export with_profiling, enable_profiling!, is_profiling_enabled, configure_profiling
 export profile_strategy_operation, profile_if_slow
@@ -103,5 +106,31 @@ export configure_exchange!, get_exchange_config, setup_exchange!
 export configure_asset_universe!, get_universe_config, create_asset_universe
 export update_asset_universe!, configure_market_data!, get_market_data_config
 export setup_market_data_sources!, get_available_assets, validate_asset_universe
+
+# Module initialization
+function __init__()
+    # Initialize environment variables and constants
+    ASSETS_FLAG[] = env_assets_flag()
+    WATCHER_EXC[] = env_watcher_exchange()
+    OHLCV_METHOD[] = env_ohlcv_method()
+    PROFILING[] = env_profiling_enabled()
+    
+    # Set default asset configurations if none exist
+    if isempty(ASSETS_CT)
+        # Default configuration for common exchanges
+        default_assets = String[
+            "BTC/USDT:USDT",
+            "ETH/USDT:USDT",
+            "SOL/USDT:USDT",
+        ]
+        primary_asset = String["BTC/USDT:USDT"]
+        setassets!(:default, :phemex, default_assets)
+        setassets!(:default, :binance, default_assets)
+        setassets!(:test, :phemex, primary_asset)
+        setassets!(:test, :binance, primary_asset)
+    end
+    
+    @debug "StrategyFramework initialized" ASSETS_FLAG=ASSETS_FLAG[] WATCHER_EXC=WATCHER_EXC[] OHLCV_METHOD=OHLCV_METHOD[] PROFILING=PROFILING[]
+end
 
 end

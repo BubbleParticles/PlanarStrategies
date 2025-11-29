@@ -5,7 +5,7 @@ using Planar
 
 # Import strategy lifecycle types and functions
 using Planar.Engine.Strategies: LoadStrategy, ResetStrategy, StartStrategy, StopStrategy, WarmupPeriod, StrategyMarkets, default_load
-using Planar.Executors: WatchOHLCV
+# WatchOHLCV is already imported via @strategyenv!() in the main module
 
 """
     initialize_strategy!(s::SC, sg::SignalGenerator)
@@ -215,27 +215,23 @@ Sets up the strategy configuration and performs initial setup.
 function call!(t::Type{<:SC}, config, ::LoadStrategy)
     @debug "Loading StrategyFramework" strategy_type=t
     
-    # Set minimum timeframe and available timeframes
+    # Set minimum timeframe and available timeframes (these are valid Config fields)
     config.min_timeframe = TF
     config.timeframes = [TF]
     
-    # Set default configuration values if not already set
-    if !hasfield(typeof(config), :signal_lifetime) || !isdefined(config, :signal_lifetime)
-        config.signal_lifetime = 0.2
-    end
-    
-    if !hasfield(typeof(config), :def_lev) || !isdefined(config, :def_lev)
-        config.def_lev = 1.0
-    end
-    
     # Use default loading mechanism from Planar
-    default_load(@__MODULE__, t, config)
+    s = default_load(@__MODULE__, t, config)
+    
+    # Initialize strategy configuration with default values
+    s[:strategy_config] = StrategyConfig()
+    
+    s
 end
 
 """
     call!(s::SC, ::ResetStrategy)
 
-Reset strategy callback - called when strategy is reset.
+
 Initializes OHLCV watching and resets strategy state.
 """
 function call!(s::SC, ::ResetStrategy)
@@ -287,7 +283,7 @@ function call!(s::SC, ::StartStrategy)
     end
     
     # Initialize OHLCV data management
-    initialize_ohlcv!(s)
+    initohlcv!(s)
     
     @debug "StrategyFramework start complete" strategy_id=id(s)
     nothing
@@ -354,7 +350,7 @@ Strategy markets callback - returns the list of market symbols for the strategy.
 Uses the current asset configuration from environment settings.
 """
 function call!(::Union{<:SC,Type{<:SC}}, ::StrategyMarkets)
-    markets = strategy_assets()
+    markets = get_current_assets()
     @debug "Strategy markets configured" markets=markets
     markets
 end
@@ -452,15 +448,6 @@ function handle_sell_signal!(s::SC, ai::AssetInstance, ats::DateTime, ts::DateTi
     # TODO: Implement in trading/order_management.jl
 end
 
-"""
-    update_asset_tracking!(s::SC, ai::AssetInstance, ats::DateTime)
-
-Update tracking information for an asset.
-"""
-function update_asset_tracking!(s::SC, ai::AssetInstance, ats::DateTime)
-    # This will be implemented in the data modules
-    # TODO: Implement in data/trend_detection.jl
-end
 
 # Optional interface methods for signal generators
 """

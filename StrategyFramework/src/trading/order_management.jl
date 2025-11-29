@@ -612,16 +612,6 @@ function is_increasing_position(s::SC, ai::AssetInstance, side::PositionSide)
     return (current_position > 0 && side isa Long) || (current_position < 0 && side isa Short)
 end
 
-"""
-    is_market_open(s::SC, ai::AssetInstance, ts::DateTime)
-
-Check if market is open for trading.
-"""
-function is_market_open(s::SC, ai::AssetInstance, ts::DateTime)
-    # For crypto markets, assume always open
-    # In practice, this would check exchange-specific trading hours
-    return true
-end
 
 """
     analyze_market_conditions(s::SC, ai::AssetInstance)
@@ -814,8 +804,7 @@ function validate_order_params(order_params::Dict{Symbol, Any})
         return false
     end
 end
-#
- Order Error Handling and Validation Functions
+# Order Error Handling and Validation Functions
 
 """
     handle_order_error(s::SC, ai::AssetInstance, order_params::Dict{Symbol, Any}, error::String)
@@ -843,16 +832,24 @@ function handle_order_error(s::SC, ai::AssetInstance, order_params::Dict{Symbol,
         update_error_tracking(s, ai, error_category, error)
         
         # Handle based on error category
-        success = case error_category of
-            :insufficient_margin => handle_margin_error(s, ai, order_params, error)
-            :price_out_of_range => handle_price_error(s, ai, order_params, error)
-            :market_closed => handle_market_closed_error(s, ai, order_params, error)
-            :network_timeout => handle_network_error(s, ai, order_params, error)
-            :order_rejected => handle_rejection_error(s, ai, order_params, error)
-            :insufficient_balance => handle_balance_error(s, ai, order_params, error)
-            :position_limit => handle_position_limit_error(s, ai, order_params, error)
-            :invalid_parameters => handle_parameter_error(s, ai, order_params, error)
-            _ => handle_unknown_error(s, ai, order_params, error)
+        success = if error_category == :insufficient_margin
+            handle_margin_error(s, ai, order_params, error)
+        elseif error_category == :price_out_of_range
+            handle_price_error(s, ai, order_params, error)
+        elseif error_category == :market_closed
+            handle_market_closed_error(s, ai, order_params, error)
+        elseif error_category == :network_timeout
+            handle_network_error(s, ai, order_params, error)
+        elseif error_category == :order_rejected
+            handle_rejection_error(s, ai, order_params, error)
+        elseif error_category == :insufficient_balance
+            handle_balance_error(s, ai, order_params, error)
+        elseif error_category == :position_limit
+            handle_position_limit_error(s, ai, order_params, error)
+        elseif error_category == :invalid_parameters
+            handle_parameter_error(s, ai, order_params, error)
+        else
+            handle_unknown_error(s, ai, order_params, error)
         end
         
         if success

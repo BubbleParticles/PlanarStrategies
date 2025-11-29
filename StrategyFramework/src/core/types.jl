@@ -13,9 +13,9 @@ const WMA = oti.WMA
 
 # Environment configuration constants
 const ASSETS_CT = Dict{Tuple{Symbol,Symbol},Vector{String}}()
-const ASSETS_FLAG = Ref{Symbol}()
-const WATCHER_EXC = Ref{Symbol}()
-const OHLCV_METHOD = Ref{Symbol}()
+const ASSETS_FLAG = Ref{Symbol}(:default)
+const WATCHER_EXC = Ref{Symbol}(:binance)
+const OHLCV_METHOD = Ref{Symbol}(:candles)
 
 # Configuration constants
 const PROFILING = Ref(false)

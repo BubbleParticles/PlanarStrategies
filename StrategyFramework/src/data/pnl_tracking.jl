@@ -3,7 +3,7 @@
 using Dates
 using Statistics
 using Planar
-using Planar.Data: CircularBuffer
+# CircularBuffer is available via @strategyenv!() through Data.DataStructures
 
 """
     trackpnl!(s::SC, ai::AssetInstance, ats::DateTime; interval::Period = Hour(1))

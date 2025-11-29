@@ -378,7 +378,7 @@ function calculate_optimal_spread(s::SC, ai::AssetInstance, target_spread_pct::F
         
         optimal_spread = clamp(optimal_spread, min_spread, max_spread)
         
-        @debug "Optimal spread calculated" ai=ai target=target_spread_pct optimal=optimal_spread vol_mult=volatility_multiplier vol_mult=volume_multiplier
+        @debug "Optimal spread calculated" ai=ai target=target_spread_pct optimal=optimal_spread vol_mult=volatility_multiplier vol_mult_volume=volume_multiplier
         
         return optimal_spread
         
@@ -824,8 +824,5 @@ function is_market_open(s::SC, ai::AssetInstance, ts::DateTime)
     return true
 end
 
-# Import helper functions from other modules
-using ..RiskManagement: get_max_position_size, get_min_position_size
-using ..OrderManagement: get_tick_size, get_lot_size, get_min_quantity, generate_order_id
-using ..PositionManagement: cash, haspositions, position
-using ..MathUtils: normalize_price, normalize_quantity
+# Helper functions are defined in other included files within the same module
+# No imports needed - they're all in StrategyFramework namespace

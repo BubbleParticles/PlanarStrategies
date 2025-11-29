@@ -30,7 +30,7 @@ end
 Get the watcher exchange from environment variables.
 """
 function env_watcher_exchange()
-    exc_str = get(ENV, "WATCHER_EXC", "phemex")
+    exc_str = get(ENV, "WATCHER_EXC", "binance")
     Symbol(exc_str)
 end
 
@@ -40,7 +40,7 @@ end
 Get the OHLCV method from environment variables.
 """
 function env_ohlcv_method()
-    method_str = get(ENV, "OHLCV_METHOD", "ccxt")
+    method_str = get(ENV, "OHLCV_METHOD", "candles")
     Symbol(method_str)
 end
 

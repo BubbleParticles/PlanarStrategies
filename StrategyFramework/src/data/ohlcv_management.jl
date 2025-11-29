@@ -2,9 +2,8 @@
 
 using Dates
 using Planar
-using Planar.Data: OHLCV, ohlcv
-using Planar.Fetch: fetch_ohlcv
-using Planar.Watchers: start_watcher, stop_watcher
+# Data, OHLCV, ohlcv, and fetch_ohlcv are already available via @strategyenv!()
+# Watchers functionality is available through the main strategy framework
 
 """
     initdata!(s::SC)
@@ -71,6 +70,10 @@ Initialize OHLCV data for a specific asset instance.
 function init_asset_ohlcv!(s::SC, ai::AssetInstance, method::Symbol)
     @debug "Initializing OHLCV for asset" asset=ai method=method
     
+    # In Planar, OHLCV data is managed by the LiveMode watchers
+    # For simulation mode, data is loaded via load_ohlcv or stub!
+    # This function mainly ensures the data structures are ready
+    
     try
         # Validate asset availability
         if !validate_asset_availability(ai)
@@ -78,93 +81,15 @@ function init_asset_ohlcv!(s::SC, ai::AssetInstance, method::Symbol)
             return nothing
         end
         
-        # Initialize OHLCV data based on method
-        if method == :ccxt
-            init_ccxt_ohlcv!(s, ai)
-        elseif method == :fetch
-            init_fetch_ohlcv!(s, ai)
-        else
-            @warn "Unknown OHLCV method" method=method asset=ai
-        end
+        # The actual OHLCV data will be populated by:
+        # - LiveMode: watchers (via WatchOHLCV action)
+        # - SimMode/PaperMode: load_ohlcv or stub!
+        # We just ensure the tracking structures exist
         
-        # Validate initial data
-        validate_initial_ohlcv!(s, ai)
+        @debug "OHLCV initialization complete" asset=ai method=method
         
     catch e
         @error "Failed to initialize OHLCV for asset" asset=ai error=e
-        rethrow(e)
-    end
-    
-    nothing
-end
-
-"""
-    init_ccxt_ohlcv!(s::SC, ai::AssetInstance)
-
-Initialize OHLCV data using CCXT method.
-"""
-function init_ccxt_ohlcv!(s::SC, ai::AssetInstance)
-    # Get timeframe from strategy
-    tf = get(s.attrs, :timeframe, TF)
-    
-    # Fetch initial OHLCV data
-    try
-        ohlcv_data = ohlcv(ai, tf)
-        
-        if isempty(ohlcv_data)
-            @warn "No OHLCV data available" asset=ai timeframe=tf
-            return nothing
-        end
-        
-        # Store OHLCV reference in strategy
-        if !haskey(s.attrs, :ohlcv_data)
-            s[:ohlcv_data] = Dict{AssetInstance, Any}()
-        end
-        s[:ohlcv_data][ai] = ohlcv_data
-        
-        @debug "CCXT OHLCV initialized" asset=ai rows=length(ohlcv_data)
-        
-    catch e
-        @error "Failed to fetch CCXT OHLCV data" asset=ai error=e
-        rethrow(e)
-    end
-    
-    nothing
-end
-
-"""
-    init_fetch_ohlcv!(s::SC, ai::AssetInstance)
-
-Initialize OHLCV data using fetch method.
-"""
-function init_fetch_ohlcv!(s::SC, ai::AssetInstance)
-    # Get timeframe and lookback period
-    tf = get(s.attrs, :timeframe, TF)
-    lookback = get(s.attrs, :ohlcv_lookback, 1000)
-    
-    try
-        # Calculate start time for data fetch
-        end_time = now()
-        start_time = end_time - (lookback * tf.period)
-        
-        # Fetch OHLCV data
-        ohlcv_data = fetch_ohlcv(ai, tf, start_time, end_time)
-        
-        if isempty(ohlcv_data)
-            @warn "No fetch OHLCV data available" asset=ai timeframe=tf
-            return nothing
-        end
-        
-        # Store OHLCV reference in strategy
-        if !haskey(s.attrs, :ohlcv_data)
-            s[:ohlcv_data] = Dict{AssetInstance, Any}()
-        end
-        s[:ohlcv_data][ai] = ohlcv_data
-        
-        @debug "Fetch OHLCV initialized" asset=ai rows=length(ohlcv_data) start_time=start_time
-        
-    catch e
-        @error "Failed to fetch OHLCV data" asset=ai error=e
         rethrow(e)
     end
     

@@ -3,7 +3,7 @@
 using Dates
 using Statistics
 using Planar
-using Planar.Data: MovingExtrema, WMA, CircularBuffer
+# MovingExtrema, WMA, and CircularBuffer are available via @strategyenv!() through Data module
 
 """
     trackhl!(s::SC, ai::AssetInstance, ats::DateTime)

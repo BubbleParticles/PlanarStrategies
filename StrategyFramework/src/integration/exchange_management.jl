@@ -13,8 +13,12 @@ using Logging
 # Import Planar modules for exchange and asset management
 using Planar
 using Planar.Exchanges
-using Planar.Engine: AssetCollection, AssetInstance
+using Planar.Engine.Instances: AssetInstance
+using Planar.Engine.Collections: AssetCollection
 using Planar.Misc: Config
+
+# Import now from TimeTicks to avoid ambiguity with Dates.now
+using TimeTicks: now
 
 # Exchange configuration and rate limiting
 
@@ -413,8 +417,8 @@ function _filter_assets(assets::Vector{String}, config::AssetUniverseConfig)
         
         # Check quote currency
         quote_match = false
-        for quote in config.quote_currencies
-            if endswith(asset, quote)
+        for quote_curr in config.quote_currencies
+            if endswith(asset, quote_curr)
                 quote_match = true
                 break
             end
