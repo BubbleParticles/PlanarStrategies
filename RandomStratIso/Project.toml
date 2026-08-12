@@ -1,0 +1,11 @@
+name = "RandomStratIso"
+uuid = "8e58f1bf-f1ad-497d-8c90-0484a62d9cd9"
+version = "0.1.0"
+authors = ["zbc"]
+
+[deps]
+Planar = "646fb1a4-6797-441d-ad18-3bdbde2eb86b"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+
+[sources]
+Planar = {path = "../../../Planar"}

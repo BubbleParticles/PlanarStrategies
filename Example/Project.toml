@@ -1,0 +1,10 @@
+name = "Example"
+uuid = "4a8322ce-c448-4a36-a7e3-6e13ca857f40"
+version = "0.1.0"
+authors = ["zbc"]
+
+[deps]
+Planar = "646fb1a4-6797-441d-ad18-3bdbde2eb86b"
+
+[sources]
+Planar = {path = "../../../Planar"}

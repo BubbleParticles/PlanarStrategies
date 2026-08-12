@@ -1,0 +1,8 @@
+┌ Info: 2025-04-29 15:47:13 Starting strategy ExampleMargin in Live mode!
+│ 
+│ throttle: 5 seconds
+│ timeframes: 1m (main), 1m (optional), 1m 15m 1h 1d (extras)
+│ cash: USDT: 100.0 (on phemex) [-11.413(K)]
+│ assets: ETH/USDT:USDT, BTC/USDT:USDT, SOL/USDT:USDT
+│ margin: isolated
+└ @ PaperMode /var/home/fra/dev/Planar.jl/PaperMode/src/module.jl:184
