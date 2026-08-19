@@ -15,10 +15,10 @@ using Planar
 using Planar.Exchanges
 using Planar.Engine.Instances: AssetInstance
 using Planar.Engine.Collections: AssetCollection
-using Planar.Misc: Config
+using Planar.Engine.Misc: Config
 
 # Import now from TimeTicks to avoid ambiguity with Dates.now
-using TimeTicks: now
+using Planar.Engine.TimeTicks: now
 
 # Exchange configuration and rate limiting
 

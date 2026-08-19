@@ -5,8 +5,8 @@ using Planar.Engine.Executors
 using Planar.Engine.Executors.Instruments
 using Planar.Engine.OrderTypes
 using Planar.Engine.Strategies
-using Planar.Lang
-using Planar.Misc
+using Planar.Engine.Lang
+using Planar.Engine.Misc
 using Planar.Remote
 
 # Planar.Engine specific imports
@@ -33,14 +33,37 @@ using Planar.Engine.OrderTypes:
     GTCOrder
 using Planar.Engine.OrderTypes: orderside, islong, isshort
 using Planar.Engine.Strategies: Strategy
-using Planar.Engine.Misc.Lang: withoutkws
+using Planar.Engine.Lang: withoutkws
 using Planar.Engine: raw
 using PlanarStrategyTools: select_ordertype, livesleep
 
 # Planar utility imports
-using Planar: @ldebug, @lerror, @lwarn, @linfo
-using Planar.Misc: @kwdef, DFT
-using Planar.Lang: @deassert
+
+# QuickStart was written against a level-first logging API (`@ldebug level "msg"`),
+# but Planar's current macros are strategy-first (`@ldebug s "msg"`). Compatibility
+# shims forward to Base logging, ignoring the leading level argument.
+macro ldebug(args...)
+    quote
+        @debug $(esc(args[2])) $(esc.(args[3:end])...)
+    end
+end
+macro linfo(args...)
+    quote
+        @info $(esc(args[2])) $(esc.(args[3:end])...)
+    end
+end
+macro lwarn(args...)
+    quote
+        @warn $(esc(args[2])) $(esc.(args[3:end])...)
+    end
+end
+macro lerror(args...)
+    quote
+        @error $(esc(args[2])) $(esc.(args[3:end])...)
+    end
+end
+using Planar.Engine.Misc: @kwdef, DFT
+using Planar.Engine.Lang: @deassert
 
 # External package imports
 using PlanarStrategyTools
