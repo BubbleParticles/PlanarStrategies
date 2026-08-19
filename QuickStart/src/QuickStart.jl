@@ -2,7 +2,7 @@ module QuickStart
 using Core: kwfunc
 using Planar
 using .Planar.Pkg
-using StrategyTools: StrategyTools as stt
+using PlanarStrategyTools: PlanarStrategyTools as stt
 using .stt: initqt!, inittrends!, initlev!, initpnl!
 using .stt: copypnl!, liveloop, livesleep, signals!, signals, getlev, strategy_signal
 using .stt: signal_value

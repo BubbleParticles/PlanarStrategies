@@ -35,7 +35,7 @@ using Planar.Engine.OrderTypes: orderside, islong, isshort
 using Planar.Engine.Strategies: Strategy
 using Planar.Engine.Misc.Lang: withoutkws
 using Planar.Engine: raw
-using StrategyTools: select_ordertype, livesleep
+using PlanarStrategyTools: select_ordertype, livesleep
 
 # Planar utility imports
 using Planar: @ldebug, @lerror, @lwarn, @linfo
@@ -43,8 +43,8 @@ using Planar.Misc: @kwdef, DFT
 using Planar.Lang: @deassert
 
 # External package imports
-using StrategyTools
-using StrategyTools: Trade, TradeResult
+using PlanarStrategyTools
+using PlanarStrategyTools: Trade, TradeResult
 
 const PROFILING = Ref(false)
 const REVISE_CALLBACK = Ref{Any}(nothing)

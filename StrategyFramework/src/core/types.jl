@@ -2,7 +2,7 @@
 
 using Dates
 using Planar
-using StrategyTools: StrategyTools as stt
+using PlanarStrategyTools: PlanarStrategyTools as stt
 using .stt: oti
 
 # Generic strategy type that can be used by any strategy
