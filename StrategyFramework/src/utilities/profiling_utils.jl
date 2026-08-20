@@ -1,7 +1,8 @@
 # Profiling utilities for StrategyFramework
 # Provides optional performance profiling integration with Main.Profile when available
 
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 
 """
     with_profiling(f, s::SC; enabled::Bool = PROFILING[], 

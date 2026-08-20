@@ -1,12 +1,13 @@
 # Market making system for StrategyFramework
 # Handles automated market making, spread calculations, and liquidity provision
 
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 using Statistics
 using Planar
 
 """
-    market_make(s::SC, ai::AssetInstance, ats::DateTime, ts::DateTime; 
+    market_make(s::SC, ii::InstrumentInstance, ats::DateTime, ts::DateTime; 
                 target_spread_pct::Float64 = 0.002, max_position_pct::Float64 = 0.1)
 
 Execute market making strategy for an asset by placing buy and sell orders around current price.
@@ -14,7 +15,7 @@ Provides liquidity while managing inventory risk and maintaining target spreads.
 
 # Arguments
 - `s::SC`: Strategy instance
-- `ai::AssetInstance`: Asset instance to market make
+- `ii::InstrumentInstance`: Instrument instance to market make
 - `ats::DateTime`: Analysis timestamp
 - `ts::DateTime`: Current timestamp
 - `target_spread_pct::Float64`: Target spread as percentage of mid price (default: 0.2%)
@@ -23,14 +24,14 @@ Provides liquidity while managing inventory risk and maintaining target spreads.
 # Returns
 - NamedTuple with market making results and order information
 """
-function market_make(s::SC, ai::AssetInstance, ats::DateTime, ts::DateTime; 
+function market_make(s::SC, ii::InstrumentInstance, ats::DateTime, ts::DateTime; 
                      target_spread_pct::Float64 = 0.002, max_position_pct::Float64 = 0.1)
     try
-        @debug "Starting market making" ai=ai target_spread_pct=target_spread_pct
+        @debug "Starting market making" ii=ii target_spread_pct=target_spread_pct
         
         # Check if market making is appropriate
-        if !should_market_make(s, ai, ats)
-            @debug "Market making conditions not met" ai=ai
+        if !should_market_make(s, ii, ats)
+            @debug "Market making conditions not met" ii=ii
             return (
                 success = false,
                 reason = "conditions_not_met",
@@ -40,17 +41,17 @@ function market_make(s::SC, ai::AssetInstance, ats::DateTime, ts::DateTime;
         end
         
         # Get current market data
-        current_price = last(s.universe[ai].close)
-        market_conditions = analyze_market_making_conditions(s, ai)
+        current_price = last(s.universe[ii].close)
+        market_conditions = analyze_market_making_conditions(s, ii)
         
         # Calculate optimal spread based on market conditions
-        optimal_spread = calculate_optimal_spread(s, ai, target_spread_pct, market_conditions)
+        optimal_spread = calculate_optimal_spread(s, ii, target_spread_pct, market_conditions)
         
         # Calculate order amounts
-        make_amounts = get_make_amounts(s, ai, max_position_pct)
+        make_amounts = get_make_amounts(s, ii, max_position_pct)
         
         if make_amounts.buy_amount <= 0 && make_amounts.sell_amount <= 0
-            @debug "No valid make amounts calculated" ai=ai
+            @debug "No valid make amounts calculated" ii=ii
             return (
                 success = false,
                 reason = "no_valid_amounts",
@@ -65,8 +66,8 @@ function market_make(s::SC, ai::AssetInstance, ats::DateTime, ts::DateTime;
         ask_price = current_price + half_spread
         
         # Normalize prices to exchange requirements
-        bid_price = normalize_price(bid_price, get_tick_size(s, ai))
-        ask_price = normalize_price(ask_price, get_tick_size(s, ai))
+        bid_price = normalize_price(bid_price, get_tick_size(s, ii))
+        ask_price = normalize_price(ask_price, get_tick_size(s, ii))
         
         # Place market making orders
         buy_result = nothing
@@ -74,23 +75,23 @@ function market_make(s::SC, ai::AssetInstance, ats::DateTime, ts::DateTime;
         
         # Place buy order (bid)
         if make_amounts.buy_amount > 0
-            buy_result = place_market_making_order(s, ai, Long(), make_amounts.buy_amount, 
+            buy_result = place_market_making_order(s, ii, Long(), make_amounts.buy_amount, 
                                                  bid_price, "market_make_buy")
         end
         
         # Place sell order (ask)
         if make_amounts.sell_amount > 0
-            sell_result = place_market_making_order(s, ai, Short(), make_amounts.sell_amount, 
+            sell_result = place_market_making_order(s, ii, Short(), make_amounts.sell_amount, 
                                                   ask_price, "market_make_sell")
         end
         
         # Update market making tracking
-        update_market_making_tracking(s, ai, ts, optimal_spread, make_amounts, buy_result, sell_result)
+        update_market_making_tracking(s, ii, ts, optimal_spread, make_amounts, buy_result, sell_result)
         
         success = (buy_result !== nothing && buy_result.success) || 
                  (sell_result !== nothing && sell_result.success)
         
-        @info "Market making execution completed" ai=ai success=success spread=optimal_spread
+        @info "Market making execution completed" ii=ii success=success spread=optimal_spread
         
         return (
             success = success,
@@ -102,7 +103,7 @@ function market_make(s::SC, ai::AssetInstance, ats::DateTime, ts::DateTime;
         )
         
     catch e
-        @error "Error in market making" ai=ai error=e
+        @error "Error in market making" ii=ii error=e
         return (
             success = false,
             reason = "error",
@@ -114,81 +115,81 @@ function market_make(s::SC, ai::AssetInstance, ats::DateTime, ts::DateTime;
 end
 
 """
-    should_market_make(s::SC, ai::AssetInstance, ats::DateTime)
+    should_market_make(s::SC, ii::InstrumentInstance, ats::DateTime)
 
 Determine if market making should be performed based on current conditions.
 Checks market volatility, position limits, and strategy state.
 
 # Arguments
 - `s::SC`: Strategy instance
-- `ai::AssetInstance`: Asset instance
+- `ii::InstrumentInstance`: Instrument instance
 - `ats::DateTime`: Analysis timestamp
 
 # Returns
 - Bool: true if market making should proceed
 """
-function should_market_make(s::SC, ai::AssetInstance, ats::DateTime)
+function should_market_make(s::SC, ii::InstrumentInstance, ats::DateTime)
     try
         # Check if market making is enabled
         if !get(s.config, :enable_market_making, true)
-            @debug "Market making disabled in configuration" ai=ai
+            @debug "Market making disabled in configuration" ii=ii
             return false
         end
         
         # Check market hours
-        if !is_market_open(s, ai, ats)
-            @debug "Market is closed" ai=ai
+        if !is_market_open(s, ii, ats)
+            @debug "Market is closed" ii=ii
             return false
         end
         
         # Check if sufficient data is available
-        if length(s.universe[ai].close) < 20
-            @debug "Insufficient market data for market making" ai=ai
+        if length(s.universe[ii].close) < 20
+            @debug "Insufficient market data for market making" ii=ii
             return false
         end
         
         # Check volatility conditions
-        market_conditions = analyze_market_making_conditions(s, ai)
+        market_conditions = analyze_market_making_conditions(s, ii)
         max_volatility = get(s.config, :max_mm_volatility, 0.05)  # 5% max volatility
         
         if market_conditions.volatility > max_volatility
-            @debug "Volatility too high for market making" ai=ai volatility=market_conditions.volatility
+            @debug "Volatility too high for market making" ii=ii volatility=market_conditions.volatility
             return false
         end
         
         # Check position limits
         current_position_value = 0.0
-        if haspositions(s, ai)
-            current_position = position(s, ai)
-            current_price = last(s.universe[ai].close)
+        if haspositions(s, ii)
+            current_position = position(s, ii)
+            current_price = last(s.universe[ii].close)
             current_position_value = abs(current_position * current_price)
         end
         
-        max_position_value = get_max_position_size(s, ai)
+        max_position_value = get_max_position_size(s, ii)
         position_utilization = current_position_value / max_position_value
         max_position_utilization = get(s.config, :max_mm_position_utilization, 0.8)  # 80% max
         
         if position_utilization > max_position_utilization
-            @debug "Position utilization too high for market making" ai=ai utilization=position_utilization
+            @debug "Position utilization too high for market making" ii=ii utilization=position_utilization
             return false
         end
         
         # Check available cash
-        available_cash = cash(s, ai)
+        available_cash = cash(s, ii)
         min_cash_for_mm = get(s.config, :min_cash_for_mm, 1000.0)  # $1000 minimum
         
         if available_cash < min_cash_for_mm
-            @debug "Insufficient cash for market making" ai=ai available=available_cash
+            @debug "Insufficient cash for market making" ii=ii available=available_cash
             return false
         end
         
         # Check recent market making activity (avoid over-trading)
-        last_mm_time = get(s.config, :last_mm_time, Dict{AssetInstance, DateTime}())
+        last_mm_time = get(s.config, :last_mm_time, Dict{InstrumentInstance, DateTime}())
         mm_cooldown = get(s.config, :mm_cooldown, Minute(5))
         
-        if haskey(last_mm_time, ai)
-            if ats - last_mm_time[ai] < mm_cooldown
-                @debug "Market making cooldown active" ai=ai
+        if haskey(last_mm_time, ii)
+            if ats - last_mm_time[ii] < mm_cooldown
+                @debug "Market making cooldown active" ii=ii
                 return false
             end
         end
@@ -196,80 +197,80 @@ function should_market_make(s::SC, ai::AssetInstance, ats::DateTime)
         # Check spread conditions
         min_spread = get(s.config, :min_mm_spread, 0.001)  # 0.1% minimum spread
         if market_conditions.current_spread_pct < min_spread
-            @debug "Current spread too tight for profitable market making" ai=ai spread=market_conditions.current_spread_pct
+            @debug "Current spread too tight for profitable market making" ii=ii spread=market_conditions.current_spread_pct
             return false
         end
         
         return true
         
     catch e
-        @error "Error checking market making conditions" ai=ai error=e
+        @error "Error checking market making conditions" ii=ii error=e
         return false
     end
 end
 
 """
-    ensure_market_make(s::SC, ai::AssetInstance, ats::DateTime, ts::DateTime)
+    ensure_market_make(s::SC, ii::InstrumentInstance, ats::DateTime, ts::DateTime)
 
 Ensure market making orders are active, placing new ones if needed.
 Manages existing orders and replaces stale or unfavorable orders.
 
 # Arguments
 - `s::SC`: Strategy instance
-- `ai::AssetInstance`: Asset instance
+- `ii::InstrumentInstance`: Instrument instance
 - `ats::DateTime`: Analysis timestamp
 - `ts::DateTime`: Current timestamp
 
 # Returns
 - Bool: true if market making orders are ensured to be active
 """
-function ensure_market_make(s::SC, ai::AssetInstance, ats::DateTime, ts::DateTime)
+function ensure_market_make(s::SC, ii::InstrumentInstance, ats::DateTime, ts::DateTime)
     try
-        @debug "Ensuring market making orders" ai=ai
+        @debug "Ensuring market making orders" ii=ii
         
         # Check existing market making orders
-        existing_orders = get_active_market_making_orders(s, ai)
+        existing_orders = get_active_market_making_orders(s, ii)
         
         # Determine if orders need to be refreshed
-        needs_refresh = should_refresh_market_making_orders(s, ai, existing_orders, ats)
+        needs_refresh = should_refresh_market_making_orders(s, ii, existing_orders, ats)
         
         if needs_refresh
             # Cancel existing market making orders
-            cancel_market_making_orders(s, ai, existing_orders)
+            cancel_market_making_orders(s, ii, existing_orders)
             
             # Place new market making orders
-            result = market_make(s, ai, ats, ts)
+            result = market_make(s, ii, ats, ts)
             return result.success
         else
-            @debug "Existing market making orders are still valid" ai=ai
+            @debug "Existing market making orders are still valid" ii=ii
             return true
         end
         
     catch e
-        @error "Error ensuring market making" ai=ai error=e
+        @error "Error ensuring market making" ii=ii error=e
         return false
     end
 end
 
 """
-    get_make_amounts(s::SC, ai::AssetInstance, max_position_pct::Float64)
+    get_make_amounts(s::SC, ii::InstrumentInstance, max_position_pct::Float64)
 
 Calculate optimal amounts for market making orders based on available capital and risk limits.
 
 # Arguments
 - `s::SC`: Strategy instance
-- `ai::AssetInstance`: Asset instance
+- `ii::InstrumentInstance`: Instrument instance
 - `max_position_pct::Float64`: Maximum position percentage
 
 # Returns
 - NamedTuple with buy_amount and sell_amount
 """
-function get_make_amounts(s::SC, ai::AssetInstance, max_position_pct::Float64)
+function get_make_amounts(s::SC, ii::InstrumentInstance, max_position_pct::Float64)
     try
         # Get available cash and current position
-        available_cash = cash(s, ai)
-        current_position = haspositions(s, ai) ? position(s, ai) : 0.0
-        current_price = last(s.universe[ai].close)
+        available_cash = cash(s, ii)
+        current_position = haspositions(s, ii) ? position(s, ii) : 0.0
+        current_price = last(s.universe[ii].close)
         current_position_value = current_position * current_price
         
         # Calculate maximum position value
@@ -287,7 +288,7 @@ function get_make_amounts(s::SC, ai::AssetInstance, max_position_pct::Float64)
         sell_amount = base_order_value * inventory_adjustment.sell_multiplier
         
         # Apply minimum and maximum order size limits
-        min_order_value = get_min_position_size(s, ai)
+        min_order_value = get_min_position_size(s, ii)
         max_single_order_value = available_cash * get(s.config, :max_mm_single_order_pct, 0.05)  # 5% max
         
         buy_amount = clamp(buy_amount, min_order_value, max_single_order_value)
@@ -306,8 +307,8 @@ function get_make_amounts(s::SC, ai::AssetInstance, max_position_pct::Float64)
         buy_quantity = buy_amount / current_price
         sell_quantity = sell_amount / current_price
         
-        lot_size = get_lot_size(s, ai)
-        min_quantity = get_min_quantity(s, ai)
+        lot_size = get_lot_size(s, ii)
+        min_quantity = get_min_quantity(s, ii)
         
         buy_quantity = normalize_quantity(buy_quantity, lot_size, min_quantity)
         sell_quantity = normalize_quantity(sell_quantity, lot_size, min_quantity)
@@ -316,7 +317,7 @@ function get_make_amounts(s::SC, ai::AssetInstance, max_position_pct::Float64)
         final_buy_amount = buy_quantity * current_price
         final_sell_amount = sell_quantity * current_price
         
-        @debug "Market making amounts calculated" ai=ai buy_amount=final_buy_amount sell_amount=final_sell_amount inventory_adj=inventory_adjustment
+        @debug "Market making amounts calculated" ii=ii buy_amount=final_buy_amount sell_amount=final_sell_amount inventory_adj=inventory_adjustment
         
         return (
             buy_amount = final_buy_amount,
@@ -327,7 +328,7 @@ function get_make_amounts(s::SC, ai::AssetInstance, max_position_pct::Float64)
         )
         
     catch e
-        @error "Error calculating make amounts" ai=ai error=e
+        @error "Error calculating make amounts" ii=ii error=e
         return (
             buy_amount = 0.0,
             sell_amount = 0.0,
@@ -339,20 +340,20 @@ function get_make_amounts(s::SC, ai::AssetInstance, max_position_pct::Float64)
 end
 
 """
-    calculate_optimal_spread(s::SC, ai::AssetInstance, target_spread_pct::Float64, market_conditions)
+    calculate_optimal_spread(s::SC, ii::InstrumentInstance, target_spread_pct::Float64, market_conditions)
 
 Calculate optimal spread for market making based on market conditions and volatility.
 
 # Arguments
 - `s::SC`: Strategy instance
-- `ai::AssetInstance`: Asset instance
+- `ii::InstrumentInstance`: Instrument instance
 - `target_spread_pct::Float64`: Target spread percentage
 - `market_conditions`: Market condition analysis results
 
 # Returns
 - Float64: Optimal spread as percentage of mid price
 """
-function calculate_optimal_spread(s::SC, ai::AssetInstance, target_spread_pct::Float64, market_conditions)
+function calculate_optimal_spread(s::SC, ii::InstrumentInstance, target_spread_pct::Float64, market_conditions)
     try
         # Start with target spread
         optimal_spread = target_spread_pct
@@ -378,12 +379,12 @@ function calculate_optimal_spread(s::SC, ai::AssetInstance, target_spread_pct::F
         
         optimal_spread = clamp(optimal_spread, min_spread, max_spread)
         
-        @debug "Optimal spread calculated" ai=ai target=target_spread_pct optimal=optimal_spread vol_mult=volatility_multiplier vol_mult_volume=volume_multiplier
+        @debug "Optimal spread calculated" ii=ii target=target_spread_pct optimal=optimal_spread vol_mult=volatility_multiplier vol_mult_volume=volume_multiplier
         
         return optimal_spread
         
     catch e
-        @error "Error calculating optimal spread" ai=ai error=e
+        @error "Error calculating optimal spread" ii=ii error=e
         return target_spread_pct  # Fallback to target
     end
 end
@@ -449,20 +450,20 @@ function calculate_inventory_adjustment(current_position_value::Float64, max_pos
 end
 
 """
-    analyze_market_making_conditions(s::SC, ai::AssetInstance)
+    analyze_market_making_conditions(s::SC, ii::InstrumentInstance)
 
 Analyze current market conditions relevant for market making decisions.
 
 # Arguments
 - `s::SC`: Strategy instance
-- `ai::AssetInstance`: Asset instance
+- `ii::InstrumentInstance`: Instrument instance
 
 # Returns
 - NamedTuple with market condition metrics
 """
-function analyze_market_making_conditions(s::SC, ai::AssetInstance)
+function analyze_market_making_conditions(s::SC, ii::InstrumentInstance)
     try
-        ohlcv = s.universe[ai]
+        ohlcv = s.universe[ii]
         
         if length(ohlcv.close) < 20
             return (
@@ -511,7 +512,7 @@ function analyze_market_making_conditions(s::SC, ai::AssetInstance)
         )
         
     catch e
-        @error "Error analyzing market making conditions" ai=ai error=e
+        @error "Error analyzing market making conditions" ii=ii error=e
         return (
             volatility = 0.02,
             volume_ratio = 1.0,
@@ -523,14 +524,14 @@ function analyze_market_making_conditions(s::SC, ai::AssetInstance)
 end
 
 """
-    place_market_making_order(s::SC, ai::AssetInstance, side::PositionSide, amount::Float64, 
+    place_market_making_order(s::SC, ii::InstrumentInstance, side::PositionSide, amount::Float64, 
                              price::Float64, reason::String)
 
 Place a market making order with appropriate parameters and tracking.
 
 # Arguments
 - `s::SC`: Strategy instance
-- `ai::AssetInstance`: Asset instance
+- `ii::InstrumentInstance`: Instrument instance
 - `side::PositionSide`: Order side (Long for buy, Short for sell)
 - `amount::Float64`: Order amount
 - `price::Float64`: Order price
@@ -539,12 +540,12 @@ Place a market making order with appropriate parameters and tracking.
 # Returns
 - NamedTuple with order result information
 """
-function place_market_making_order(s::SC, ai::AssetInstance, side::PositionSide, amount::Float64, 
+function place_market_making_order(s::SC, ii::InstrumentInstance, side::PositionSide, amount::Float64, 
                                   price::Float64, reason::String)
     try
         # Create order parameters for market making
         order_params = Dict{Symbol, Any}(
-            :asset => ai,
+            :asset => ii,
             :side => side,
             :amount => amount,
             :price => price,
@@ -563,7 +564,7 @@ function place_market_making_order(s::SC, ai::AssetInstance, side::PositionSide,
         order_id = generate_order_id()
         order_params[:order_id] = order_id
         
-        @info "Placing market making order" ai=ai side=side amount=amount price=price reason=reason order_id=order_id
+        @info "Placing market making order" ii=ii side=side amount=amount price=price reason=reason order_id=order_id
         
         # Execute the order (this would integrate with Planar's order system)
         # For now, simulate the execution
@@ -583,13 +584,13 @@ function place_market_making_order(s::SC, ai::AssetInstance, side::PositionSide,
             )
             
             # Track the order
-            track_market_making_order(s, ai, result)
+            track_market_making_order(s, ii, result)
             
             return result
         else
             # Failed order placement
             error_msg = "Order rejected by exchange"
-            @warn "Market making order failed" ai=ai order_id=order_id error=error_msg
+            @warn "Market making order failed" ii=ii order_id=order_id error=error_msg
             
             return (
                 success = false,
@@ -604,7 +605,7 @@ function place_market_making_order(s::SC, ai::AssetInstance, side::PositionSide,
         end
         
     catch e
-        @error "Error placing market making order" ai=ai side=side amount=amount error=e
+        @error "Error placing market making order" ii=ii side=side amount=amount error=e
         return (
             success = false,
             order_id = "error",
@@ -619,27 +620,27 @@ function place_market_making_order(s::SC, ai::AssetInstance, side::PositionSide,
 end
 
 """
-    update_market_making_tracking(s::SC, ai::AssetInstance, ts::DateTime, spread::Float64, 
+    update_market_making_tracking(s::SC, ii::InstrumentInstance, ts::DateTime, spread::Float64, 
                                  amounts, buy_result, sell_result)
 
 Update tracking information for market making activity.
 """
-function update_market_making_tracking(s::SC, ai::AssetInstance, ts::DateTime, spread::Float64, 
+function update_market_making_tracking(s::SC, ii::InstrumentInstance, ts::DateTime, spread::Float64, 
                                      amounts, buy_result, sell_result)
     try
         # Update last market making time
         if !haskey(s.config, :last_mm_time)
-            s.config[:last_mm_time] = Dict{AssetInstance, DateTime}()
+            s.config[:last_mm_time] = Dict{InstrumentInstance, DateTime}()
         end
-        s.config[:last_mm_time][ai] = ts
+        s.config[:last_mm_time][ii] = ts
         
         # Update market making statistics
         if !haskey(s.config, :mm_stats)
-            s.config[:mm_stats] = Dict{AssetInstance, Dict{Symbol, Any}}()
+            s.config[:mm_stats] = Dict{InstrumentInstance, Dict{Symbol, Any}}()
         end
         
-        if !haskey(s.config[:mm_stats], ai)
-            s.config[:mm_stats][ai] = Dict{Symbol, Any}(
+        if !haskey(s.config[:mm_stats], ii)
+            s.config[:mm_stats][ii] = Dict{Symbol, Any}(
                 :total_attempts => 0,
                 :successful_orders => 0,
                 :total_volume => 0.0,
@@ -648,7 +649,7 @@ function update_market_making_tracking(s::SC, ai::AssetInstance, ts::DateTime, s
             )
         end
         
-        stats = s.config[:mm_stats][ai]
+        stats = s.config[:mm_stats][ii]
         stats[:total_attempts] += 1
         stats[:last_update] = ts
         
@@ -672,10 +673,10 @@ function update_market_making_tracking(s::SC, ai::AssetInstance, ts::DateTime, s
         alpha = 0.1  # Smoothing factor
         stats[:avg_spread] = stats[:avg_spread] * (1 - alpha) + spread * alpha
         
-        @debug "Market making tracking updated" ai=ai total_attempts=stats[:total_attempts] successful=stats[:successful_orders] volume=total_volume
+        @debug "Market making tracking updated" ii=ii total_attempts=stats[:total_attempts] successful=stats[:successful_orders] volume=total_volume
         
     catch e
-        @error "Error updating market making tracking" ai=ai error=e
+        @error "Error updating market making tracking" ii=ii error=e
     end
 end
 
@@ -717,22 +718,22 @@ function calculate_volume_spread_multiplier(volume_ratio::Float64)
 end
 
 """
-    get_active_market_making_orders(s::SC, ai::AssetInstance)
+    get_active_market_making_orders(s::SC, ii::InstrumentInstance)
 
 Get currently active market making orders for an asset.
 """
-function get_active_market_making_orders(s::SC, ai::AssetInstance)
+function get_active_market_making_orders(s::SC, ii::InstrumentInstance)
     # This would integrate with Planar's order tracking system
     # For now, return empty list as placeholder
     return []
 end
 
 """
-    should_refresh_market_making_orders(s::SC, ai::AssetInstance, existing_orders, ats::DateTime)
+    should_refresh_market_making_orders(s::SC, ii::InstrumentInstance, existing_orders, ats::DateTime)
 
 Determine if existing market making orders should be refreshed.
 """
-function should_refresh_market_making_orders(s::SC, ai::AssetInstance, existing_orders, ats::DateTime)
+function should_refresh_market_making_orders(s::SC, ii::InstrumentInstance, existing_orders, ats::DateTime)
     # If no existing orders, need to place new ones
     if isempty(existing_orders)
         return true
@@ -750,75 +751,75 @@ function should_refresh_market_making_orders(s::SC, ai::AssetInstance, existing_
     # Check if market conditions have changed significantly
     # This would involve comparing current conditions to when orders were placed
     # For now, refresh every 5 minutes as a simple heuristic
-    last_refresh = get(s.config, :last_mm_refresh, Dict{AssetInstance, DateTime}())
+    last_refresh = get(s.config, :last_mm_refresh, Dict{InstrumentInstance, DateTime}())
     refresh_interval = get(s.config, :mm_refresh_interval, Minute(5))
     
-    if haskey(last_refresh, ai)
-        return ats - last_refresh[ai] > refresh_interval
+    if haskey(last_refresh, ii)
+        return ats - last_refresh[ii] > refresh_interval
     else
         return true
     end
 end
 
 """
-    cancel_market_making_orders(s::SC, ai::AssetInstance, orders)
+    cancel_market_making_orders(s::SC, ii::InstrumentInstance, orders)
 
 Cancel existing market making orders.
 """
-function cancel_market_making_orders(s::SC, ai::AssetInstance, orders)
+function cancel_market_making_orders(s::SC, ii::InstrumentInstance, orders)
     try
         for order in orders
-            @info "Cancelling market making order" ai=ai order_id=order.order_id
+            @info "Cancelling market making order" ii=ii order_id=order.order_id
             # This would integrate with Planar's order cancellation system
             # For now, just log the cancellation
         end
         
         # Update last refresh time
         if !haskey(s.config, :last_mm_refresh)
-            s.config[:last_mm_refresh] = Dict{AssetInstance, DateTime}()
+            s.config[:last_mm_refresh] = Dict{InstrumentInstance, DateTime}()
         end
-        s.config[:last_mm_refresh][ai] = now()
+        s.config[:last_mm_refresh][ii] = now()
         
     catch e
-        @error "Error cancelling market making orders" ai=ai error=e
+        @error "Error cancelling market making orders" ii=ii error=e
     end
 end
 
 """
-    track_market_making_order(s::SC, ai::AssetInstance, order_result)
+    track_market_making_order(s::SC, ii::InstrumentInstance, order_result)
 
 Track a successfully placed market making order.
 """
-function track_market_making_order(s::SC, ai::AssetInstance, order_result)
+function track_market_making_order(s::SC, ii::InstrumentInstance, order_result)
     try
         # Initialize tracking structures if needed
         if !haskey(s.config, :active_mm_orders)
-            s.config[:active_mm_orders] = Dict{AssetInstance, Vector{Any}}()
+            s.config[:active_mm_orders] = Dict{InstrumentInstance, Vector{Any}}()
         end
         
-        if !haskey(s.config[:active_mm_orders], ai)
-            s.config[:active_mm_orders][ai] = []
+        if !haskey(s.config[:active_mm_orders], ii)
+            s.config[:active_mm_orders][ii] = []
         end
         
         # Add order to active tracking
-        push!(s.config[:active_mm_orders][ai], order_result)
+        push!(s.config[:active_mm_orders][ii], order_result)
         
         # Keep only recent orders (last 100 per asset)
-        if length(s.config[:active_mm_orders][ai]) > 100
-            deleteat!(s.config[:active_mm_orders][ai], 1:10)
+        if length(s.config[:active_mm_orders][ii]) > 100
+            deleteat!(s.config[:active_mm_orders][ii], 1:10)
         end
         
     catch e
-        @error "Error tracking market making order" ai=ai order_result=order_result error=e
+        @error "Error tracking market making order" ii=ii order_result=order_result error=e
     end
 end
 
 """
-    is_market_open(s::SC, ai::AssetInstance, ts::DateTime)
+    is_market_open(s::SC, ii::InstrumentInstance, ts::DateTime)
 
 Check if the market is open for trading.
 """
-function is_market_open(s::SC, ai::AssetInstance, ts::DateTime)
+function is_market_open(s::SC, ii::InstrumentInstance, ts::DateTime)
     # For crypto markets, assume always open
     # In practice, this would check exchange-specific trading hours
     return true

@@ -1,6 +1,7 @@
 # Standalone tests for parameter management
 using Test
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 
 # Mock Planar dependency
 module MockPlanar

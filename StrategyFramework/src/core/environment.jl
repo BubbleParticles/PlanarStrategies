@@ -54,7 +54,7 @@ function env_profiling_enabled()
     lowercase(profiling_str) in ("true", "1", "yes", "on")
 end
 
-# Asset configuration functions
+# Instrument configuration functions
 """
     setassets!(flag::Symbol, exchange::Symbol, assets::Vector{String})
 
@@ -124,6 +124,7 @@ Initialize the StrategyFramework environment.
 This function is called automatically when the module is loaded.
 """
 function __init__()
+    setup_logging!()
     # Initialize environment references from environment variables
     ASSETS_FLAG[] = env_assets_flag()
     WATCHER_EXC[] = env_watcher_exchange()

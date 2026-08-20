@@ -2,19 +2,20 @@
 using Test
 using StrategyFramework
 using Logging
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 
 # Mock strategy and asset types for testing
 struct MockStrategy
     name::String
 end
 
-struct MockAsset
+struct MockInstrument
     symbol::String
 end
 
 Base.string(s::MockStrategy) = s.name
-Base.string(a::MockAsset) = a.symbol
+Base.string(a::MockInstrument) = a.symbol
 
 @testset "Logging Utils Tests" begin
     
@@ -56,7 +57,7 @@ Base.string(a::MockAsset) = a.symbol
     
     @testset "log_trade function" begin
         strategy = MockStrategy("TestStrategy")
-        asset = MockAsset("BTC/USDT")
+        asset = MockInstrument("BTC/USDT")
         
         # Capture log output
         io = IOBuffer()
@@ -88,7 +89,7 @@ Base.string(a::MockAsset) = a.symbol
     
     @testset "log_signal function" begin
         strategy = MockStrategy("TestStrategy")
-        asset = MockAsset("ETH/USDT")
+        asset = MockInstrument("ETH/USDT")
         
         io = IOBuffer()
         logger = SimpleLogger(io, Logging.Debug)
@@ -118,7 +119,7 @@ Base.string(a::MockAsset) = a.symbol
     
     @testset "log_position_update function" begin
         strategy = MockStrategy("TestStrategy")
-        asset = MockAsset("BTC/USDT")
+        asset = MockInstrument("BTC/USDT")
         
         io = IOBuffer()
         logger = SimpleLogger(io, Logging.Info)
@@ -148,7 +149,7 @@ Base.string(a::MockAsset) = a.symbol
     
     @testset "log_error function" begin
         strategy = MockStrategy("TestStrategy")
-        asset = MockAsset("BTC/USDT")
+        asset = MockInstrument("BTC/USDT")
         
         io = IOBuffer()
         logger = SimpleLogger(io, Logging.Error)
@@ -209,7 +210,7 @@ Base.string(a::MockAsset) = a.symbol
     
     @testset "log_market_data function" begin
         strategy = MockStrategy("TestStrategy")
-        asset = MockAsset("ETH/USDT")
+        asset = MockInstrument("ETH/USDT")
         
         io = IOBuffer()
         logger = SimpleLogger(io, Logging.Debug)
@@ -325,7 +326,7 @@ Base.string(a::MockAsset) = a.symbol
     
     @testset "Edge cases and error handling" begin
         strategy = MockStrategy("TestStrategy")
-        asset = MockAsset("BTC/USDT")
+        asset = MockInstrument("BTC/USDT")
         
         # Test with empty strings
         io = IOBuffer()

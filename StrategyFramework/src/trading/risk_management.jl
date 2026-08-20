@@ -1,12 +1,13 @@
 # Risk management system for StrategyFramework
 # Handles position closing, cash management, and drawdown calculations
 
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 using Statistics
 using Planar
 
 """
-    closeposition!(s::SC, ai::AssetInstance; reason::String = "risk_management", 
+    closeposition!(s::SC, ii::InstrumentInstance; reason::String = "risk_management", 
                    emergency::Bool = false)
 
 Close position for an asset with proper error handling and logging.
@@ -14,29 +15,29 @@ Supports both normal and emergency closure modes.
 
 # Arguments
 - `s::SC`: Strategy instance
-- `ai::AssetInstance`: Asset instance to close position for
+- `ii::InstrumentInstance`: Instrument instance to close position for
 - `reason::String`: Reason for closing position (for logging)
 - `emergency::Bool`: If true, use market orders for immediate closure
 
 # Returns
 - Bool: true if position was successfully closed or already closed
 """
-function closeposition!(s::SC, ai::AssetInstance; reason::String = "risk_management", 
+function closeposition!(s::SC, ii::InstrumentInstance; reason::String = "risk_management", 
                        emergency::Bool = false)
     try
         # Check if position exists
-        if !haspositions(s, ai)
-            @debug "No position to close" ai=ai reason=reason
+        if !haspositions(s, ii)
+            @debug "No position to close" ii=ii reason=reason
             return true
         end
         
-        current_position = position(s, ai)
-        if abs(current_position) < get_min_position_size(s, ai) / last(s.universe[ai].close)
-            @debug "Position too small to close" ai=ai position=current_position
+        current_position = position(s, ii)
+        if abs(current_position) < get_min_position_size(s, ii) / last(s.universe[ii].close)
+            @debug "Position too small to close" ii=ii position=current_position
             return true
         end
         
-        @info "Closing position" ai=ai position=current_position reason=reason emergency=emergency
+        @info "Closing position" ii=ii position=current_position reason=reason emergency=emergency
         
         # Determine order type based on emergency flag
         order_type = emergency ? :market : get(s.config, :ordertype, :gtc)
@@ -46,34 +47,34 @@ function closeposition!(s::SC, ai::AssetInstance; reason::String = "risk_managem
         close_amount = abs(current_position)
         
         # Place close order
-        success = place_close_order(s, ai, close_side, close_amount, order_type)
+        success = place_close_order(s, ii, close_side, close_amount, order_type)
         
         if success
             # Update tracking
-            update_close_tracking(s, ai, reason)
-            @info "Position close order placed successfully" ai=ai amount=close_amount
+            update_close_tracking(s, ii, reason)
+            @info "Position close order placed successfully" ii=ii amount=close_amount
             return true
         else
-            @error "Failed to place close order" ai=ai
+            @error "Failed to place close order" ii=ii
             
             # If normal close failed and not already emergency, try emergency close
             if !emergency
-                @warn "Attempting emergency close" ai=ai
-                return closeposition!(s, ai; reason="emergency_after_failed_close", emergency=true)
+                @warn "Attempting emergency close" ii=ii
+                return closeposition!(s, ii; reason="emergency_after_failed_close", emergency=true)
             end
             
             return false
         end
         
     catch e
-        @error "Error closing position" ai=ai reason=reason error=e
+        @error "Error closing position" ii=ii reason=reason error=e
         
         # Try emergency close if not already attempted
         if !emergency
             try
-                return closeposition!(s, ai; reason="error_recovery", emergency=true)
+                return closeposition!(s, ii; reason="error_recovery", emergency=true)
             catch e2
-                @error "Emergency close also failed" ai=ai error=e2
+                @error "Emergency close also failed" ii=ii error=e2
             end
         end
         
@@ -82,14 +83,14 @@ function closeposition!(s::SC, ai::AssetInstance; reason::String = "risk_managem
 end
 
 """
-    place_close_order(s::SC, ai::AssetInstance, side::PositionSide, amount::Float64, order_type::Symbol)
+    place_close_order(s::SC, ii::InstrumentInstance, side::PositionSide, amount::Float64, order_type::Symbol)
 
 Place order to close position with proper error handling.
 """
-function place_close_order(s::SC, ai::AssetInstance, side::PositionSide, amount::Float64, order_type::Symbol)
+function place_close_order(s::SC, ii::InstrumentInstance, side::PositionSide, amount::Float64, order_type::Symbol)
     try
         # Get current market data
-        current_price = last(s.universe[ai].close)
+        current_price = last(s.universe[ii].close)
         
         # Calculate order price based on order type
         if order_type == :market
@@ -106,11 +107,11 @@ function place_close_order(s::SC, ai::AssetInstance, side::PositionSide, amount:
         end
         
         # Normalize price and amount
-        order_price = normalize_price(order_price, get_tick_size(s, ai))
-        order_amount = normalize_quantity(amount, get_lot_size(s, ai), get_min_quantity(s, ai))
+        order_price = normalize_price(order_price, get_tick_size(s, ii))
+        order_amount = normalize_quantity(amount, get_lot_size(s, ii), get_min_quantity(s, ii))
         
         if order_amount <= 0
-            @error "Invalid order amount after normalization" ai=ai original_amount=amount normalized_amount=order_amount
+            @error "Invalid order amount after normalization" ii=ii original_amount=amount normalized_amount=order_amount
             return false
         end
         
@@ -119,32 +120,32 @@ function place_close_order(s::SC, ai::AssetInstance, side::PositionSide, amount:
         order_id = generate_order_id()
         
         # Log the order
-        @info "Placing close order" ai=ai side=side amount=order_amount price=order_price type=order_type id=order_id
+        @info "Placing close order" ii=ii side=side amount=order_amount price=order_price type=order_type id=order_id
         
         # In a real implementation, this would call Planar's order placement functions
-        # order_result = place_order(s, ai, side, order_amount, order_price, order_type)
+        # order_result = place_order(s, ii, side, order_amount, order_price, order_type)
         
         # For now, assume success
         return true
         
     catch e
-        @error "Error placing close order" ai=ai side=side amount=amount error=e
+        @error "Error placing close order" ii=ii side=side amount=amount error=e
         return false
     end
 end
 
 """
-    update_close_tracking(s::SC, ai::AssetInstance, reason::String)
+    update_close_tracking(s::SC, ii::InstrumentInstance, reason::String)
 
 Update tracking information when a position is closed.
 """
-function update_close_tracking(s::SC, ai::AssetInstance, reason::String)
+function update_close_tracking(s::SC, ii::InstrumentInstance, reason::String)
     try
         # Update last close time
         if !haskey(s.config, :last_close_time)
-            s.config[:last_close_time] = Dict{AssetInstance, DateTime}()
+            s.config[:last_close_time] = Dict{InstrumentInstance, DateTime}()
         end
-        s.config[:last_close_time][ai] = now()
+        s.config[:last_close_time][ii] = now()
         
         # Update close reason tracking
         if !haskey(s.config, :close_reasons)
@@ -156,7 +157,7 @@ function update_close_tracking(s::SC, ai::AssetInstance, reason::String)
         s.config[:total_closes] = get(s.config, :total_closes, 0) + 1
         
     catch e
-        @error "Error updating close tracking" ai=ai reason=reason error=e
+        @error "Error updating close tracking" ii=ii reason=reason error=e
     end
 end
 
@@ -176,8 +177,8 @@ function manage_cash_reserves(s::SC)
     try
         # Calculate total available cash across all assets
         total_cash = 0.0
-        for (ai, _) in s.universe
-            total_cash += cash(s, ai)
+        for (ii, _) in s.universe
+            total_cash += cash(s, ii)
         end
         
         # Get reserve percentage from configuration
@@ -221,7 +222,7 @@ function calculate_volatility_reserve_multiplier(s::SC)
         volatilities = Float64[]
         
         # Calculate volatility for each asset
-        for (ai, ohlcv) in s.universe
+        for (ii, ohlcv) in s.universe
             if length(ohlcv.close) >= 20
                 recent_closes = ohlcv.close[max(1, end-19):end]
                 returns = diff(log.(recent_closes))
@@ -264,7 +265,7 @@ Higher drawdown requires more conservative cash management.
 function calculate_drawdown_reserve_multiplier(s::SC)
     try
         peak_cash = get(s.config, :peak_cash, 0.0)
-        current_cash = sum(cash(s, ai) for (ai, _) in s.universe)
+        current_cash = sum(cash(s, ii) for (ii, _) in s.universe)
         
         if peak_cash <= 0
             return 1.0
@@ -296,31 +297,31 @@ function calculate_drawdown_reserve_multiplier(s::SC)
 end
 
 """
-    manage_collateral(s::SC, ai::AssetInstance)
+    manage_collateral(s::SC, ii::InstrumentInstance)
 
 Manage collateral requirements for leveraged positions.
 Ensures sufficient collateral is maintained for margin trading.
 
 # Arguments
 - `s::SC`: Strategy instance
-- `ai::AssetInstance`: Asset instance
+- `ii::InstrumentInstance`: Instrument instance
 
 # Returns
 - NamedTuple with collateral information
 """
-function manage_collateral(s::SC, ai::AssetInstance)
+function manage_collateral(s::SC, ii::InstrumentInstance)
     try
         # Get current position and leverage
-        current_position = haspositions(s, ai) ? position(s, ai) : 0.0
+        current_position = haspositions(s, ii) ? position(s, ii) : 0.0
         leverage = get(s.config, :def_lev, 1.0)
-        current_price = last(s.universe[ai].close)
+        current_price = last(s.universe[ii].close)
         
         # Calculate position value and required collateral
         position_value = abs(current_position * current_price)
         required_collateral = position_value / leverage
         
         # Get available collateral
-        available_cash = cash(s, ai)
+        available_cash = cash(s, ii)
         
         # Calculate collateral utilization
         collateral_utilization = required_collateral > 0 ? required_collateral / available_cash : 0.0
@@ -355,7 +356,7 @@ function manage_collateral(s::SC, ai::AssetInstance)
         )
         
     catch e
-        @error "Error managing collateral" ai=ai error=e
+        @error "Error managing collateral" ii=ii error=e
         return (
             position_value = 0.0,
             required_collateral = 0.0,
@@ -383,13 +384,13 @@ Should be called regularly during strategy execution.
 function peak_cash!(s::SC)
     try
         # Calculate current total cash
-        current_cash = sum(cash(s, ai) for (ai, _) in s.universe)
+        current_cash = sum(cash(s, ii) for (ii, _) in s.universe)
         
         # Add unrealized PnL from open positions
         unrealized_pnl = 0.0
-        for (ai, ohlcv) in s.universe
-            if haspositions(s, ai)
-                current_position = position(s, ai)
+        for (ii, ohlcv) in s.universe
+            if haspositions(s, ii)
+                current_position = position(s, ii)
                 current_price = last(ohlcv.close)
                 # This is a simplified calculation - in practice would need entry price
                 position_value = current_position * current_price
@@ -454,11 +455,11 @@ function calculate_drawdown(s::SC)
         end
         
         # Calculate current equity
-        current_cash = sum(cash(s, ai) for (ai, _) in s.universe)
+        current_cash = sum(cash(s, ii) for (ii, _) in s.universe)
         unrealized_pnl = 0.0
-        for (ai, ohlcv) in s.universe
-            if haspositions(s, ai)
-                current_position = position(s, ai)
+        for (ii, ohlcv) in s.universe
+            if haspositions(s, ii)
+                current_position = position(s, ii)
                 current_price = last(ohlcv.close)
                 position_value = current_position * current_price
                 unrealized_pnl += position_value
@@ -510,35 +511,35 @@ function calculate_drawdown(s::SC)
 end
 
 """
-    check_risk_limits(s::SC, ai::AssetInstance)
+    check_risk_limits(s::SC, ii::InstrumentInstance)
 
 Check if current positions violate risk limits and take corrective action.
 
 # Arguments
 - `s::SC`: Strategy instance
-- `ai::AssetInstance`: Asset instance to check
+- `ii::InstrumentInstance`: Instrument instance to check
 
 # Returns
 - NamedTuple with risk check results and actions taken
 """
-function check_risk_limits(s::SC, ai::AssetInstance)
+function check_risk_limits(s::SC, ii::InstrumentInstance)
     try
         actions_taken = String[]
         violations = String[]
         
         # Check position size limits
-        if haspositions(s, ai)
-            current_position = position(s, ai)
-            current_price = last(s.universe[ai].close)
+        if haspositions(s, ii)
+            current_position = position(s, ii)
+            current_price = last(s.universe[ii].close)
             position_value = abs(current_position * current_price)
             
-            max_position_value = get_max_position_size(s, ai)
+            max_position_value = get_max_position_size(s, ii)
             if position_value > max_position_value
                 push!(violations, "position_size_exceeded")
-                @warn "Position size limit exceeded" ai=ai current=position_value limit=max_position_value
+                @warn "Position size limit exceeded" ii=ii current=position_value limit=max_position_value
                 
                 # Reduce position to limit
-                if closeposition!(s, ai; reason="position_size_limit")
+                if closeposition!(s, ii; reason="position_size_limit")
                     push!(actions_taken, "position_closed_size_limit")
                 end
             end
@@ -553,36 +554,36 @@ function check_risk_limits(s::SC, ai::AssetInstance)
             @warn "Maximum drawdown exceeded" current=drawdown_info.current_drawdown_pct limit=max_drawdown_limit
             
             # Close all positions if drawdown limit exceeded
-            if closeposition!(s, ai; reason="max_drawdown_limit", emergency=true)
+            if closeposition!(s, ii; reason="max_drawdown_limit", emergency=true)
                 push!(actions_taken, "emergency_close_drawdown")
             end
         end
         
         # Check collateral limits (for leveraged positions)
-        collateral_info = manage_collateral(s, ai)
+        collateral_info = manage_collateral(s, ii)
         if collateral_info.status == :critical
             push!(violations, "critical_collateral_level")
-            @warn "Critical collateral level" ai=ai margin_level=collateral_info.margin_level
+            @warn "Critical collateral level" ii=ii margin_level=collateral_info.margin_level
             
             # Emergency position reduction
-            if closeposition!(s, ai; reason="critical_collateral", emergency=true)
+            if closeposition!(s, ii; reason="critical_collateral", emergency=true)
                 push!(actions_taken, "emergency_close_collateral")
             end
         end
         
         # Check concentration limits
         total_portfolio_value = sum(cash(s, ai_other) for (ai_other, _) in s.universe)
-        if haspositions(s, ai)
-            position_value = abs(position(s, ai) * last(s.universe[ai].close))
+        if haspositions(s, ii)
+            position_value = abs(position(s, ii) * last(s.universe[ii].close))
             concentration = position_value / total_portfolio_value
             max_concentration = get(s.config, :max_concentration, 0.30)  # 30% max per asset
             
             if concentration > max_concentration
                 push!(violations, "concentration_limit_exceeded")
-                @warn "Concentration limit exceeded" ai=ai concentration=concentration limit=max_concentration
+                @warn "Concentration limit exceeded" ii=ii concentration=concentration limit=max_concentration
                 
                 # Reduce position to limit
-                if closeposition!(s, ai; reason="concentration_limit")
+                if closeposition!(s, ii; reason="concentration_limit")
                     push!(actions_taken, "position_reduced_concentration")
                 end
             end
@@ -595,7 +596,7 @@ function check_risk_limits(s::SC, ai::AssetInstance)
         )
         
     catch e
-        @error "Error checking risk limits" ai=ai error=e
+        @error "Error checking risk limits" ii=ii error=e
         return (
             violations = ["error_in_risk_check"],
             actions_taken = String[],
@@ -606,29 +607,29 @@ end
 
 # Helper functions for exchange-specific parameters
 """
-    get_tick_size(s::SC, ai::AssetInstance)
+    get_tick_size(s::SC, ii::InstrumentInstance)
 
 Get minimum price increment (tick size) for an asset.
 """
-function get_tick_size(s::SC, ai::AssetInstance)
+function get_tick_size(s::SC, ii::InstrumentInstance)
     return get(s.config, :tick_size, 0.01)
 end
 
 """
-    get_lot_size(s::SC, ai::AssetInstance)
+    get_lot_size(s::SC, ii::InstrumentInstance)
 
 Get minimum quantity increment (lot size) for an asset.
 """
-function get_lot_size(s::SC, ai::AssetInstance)
+function get_lot_size(s::SC, ii::InstrumentInstance)
     return get(s.config, :lot_size, 0.001)
 end
 
 """
-    get_min_quantity(s::SC, ai::AssetInstance)
+    get_min_quantity(s::SC, ii::InstrumentInstance)
 
 Get minimum order quantity for an asset.
 """
-function get_min_quantity(s::SC, ai::AssetInstance)
+function get_min_quantity(s::SC, ii::InstrumentInstance)
     return get(s.config, :min_quantity, 0.001)
 end
 

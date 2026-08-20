@@ -2,13 +2,14 @@
 # Tests strategy lifecycle, order execution flows, and data management
 
 using Test
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 
 # Mock Planar types and functions for integration testing
-abstract type MockAssetInstance end
+abstract type MockInstrumentInstance end
 abstract type MockPositionSide end
 
-struct MockBTCUSDT <: MockAssetInstance
+struct MockBTCUSDT <: MockInstrumentInstance
     symbol::String
     MockBTCUSDT() = new("BTC/USDT")
 end
@@ -16,14 +17,14 @@ end
 struct MockLong <: MockPositionSide end
 struct MockShort <: MockPositionSide end
 
-Base.string(ai::MockBTCUSDT) = ai.symbol
+Base.string(ii::MockBTCUSDT) = ii.symbol
 
 # Mock strategy type with config
 mutable struct MockIntegrationStrategy
     config::NamedTuple
     is_sim::Bool
     orders::Vector{Dict{String, Any}}
-    positions::Dict{MockAssetInstance, Float64}
+    positions::Dict{MockInstrumentInstance, Float64}
     balance::Float64
     
     function MockIntegrationStrategy(is_sim::Bool = true)
@@ -38,13 +39,13 @@ mutable struct MockIntegrationStrategy
             ismake = true,
             throttle = Second(10)
         )
-        new(config, is_sim, Dict{String, Any}[], Dict{MockAssetInstance, Float64}(), 10000.0)
+        new(config, is_sim, Dict{String, Any}[], Dict{MockInstrumentInstance, Float64}(), 10000.0)
     end
 end
 
 # Mock functions
 issim(s::MockIntegrationStrategy) = s.is_sim
-isopen(ai::MockAssetInstance) = true
+isopen(ii::MockInstrumentInstance) = true
 
 # Mock signal generator for testing
 abstract type MockSignalGenerator end
@@ -66,37 +67,37 @@ struct AlternatingSignalGenerator <: MockSignalGenerator
 end
 
 # Mock signal generation functions
-function generate_buy_signal(sg::SimpleBuySignalGenerator, s::MockIntegrationStrategy, ai::MockAssetInstance, ats)
+function generate_buy_signal(sg::SimpleBuySignalGenerator, s::MockIntegrationStrategy, ii::MockInstrumentInstance, ats)
     # Simple mock: return buy signal based on threshold
     return rand() > sg.buy_threshold ? 0.8 : 0.0
 end
 
-function generate_sell_signal(sg::SimpleBuySignalGenerator, s::MockIntegrationStrategy, ai::MockAssetInstance, ats)
+function generate_sell_signal(sg::SimpleBuySignalGenerator, s::MockIntegrationStrategy, ii::MockInstrumentInstance, ats)
     # Simple mock: return sell signal based on threshold
     return rand() > sg.sell_threshold ? 0.8 : 0.0
 end
 
-function generate_buy_signal(sg::AlwaysBuySignalGenerator, s::MockIntegrationStrategy, ai::MockAssetInstance, ats)
+function generate_buy_signal(sg::AlwaysBuySignalGenerator, s::MockIntegrationStrategy, ii::MockInstrumentInstance, ats)
     return 1.0  # Always buy
 end
 
-function generate_sell_signal(sg::AlwaysBuySignalGenerator, s::MockIntegrationStrategy, ai::MockAssetInstance, ats)
+function generate_sell_signal(sg::AlwaysBuySignalGenerator, s::MockIntegrationStrategy, ii::MockInstrumentInstance, ats)
     return 0.0  # Never sell
 end
 
-function generate_buy_signal(sg::NeverTradeSignalGenerator, s::MockIntegrationStrategy, ai::MockAssetInstance, ats)
+function generate_buy_signal(sg::NeverTradeSignalGenerator, s::MockIntegrationStrategy, ii::MockInstrumentInstance, ats)
     return 0.0  # Never buy
 end
 
-function generate_sell_signal(sg::NeverTradeSignalGenerator, s::MockIntegrationStrategy, ai::MockAssetInstance, ats)
+function generate_sell_signal(sg::NeverTradeSignalGenerator, s::MockIntegrationStrategy, ii::MockInstrumentInstance, ats)
     return 0.0  # Never sell
 end
 
-function should_trade(sg::MockSignalGenerator, s::MockIntegrationStrategy, ai::MockAssetInstance, ats)
+function should_trade(sg::MockSignalGenerator, s::MockIntegrationStrategy, ii::MockInstrumentInstance, ats)
     return true  # Always allow trading
 end
 
-function should_trade(sg::NeverTradeSignalGenerator, s::MockIntegrationStrategy, ai::MockAssetInstance, ats)
+function should_trade(sg::NeverTradeSignalGenerator, s::MockIntegrationStrategy, ii::MockInstrumentInstance, ats)
     return false  # Never allow trading
 end
 
@@ -104,16 +105,16 @@ function get_signal_lifetime(sg::MockSignalGenerator)
     return 0.2  # Default signal lifetime
 end
 
-function generate_buy_signal(sg::AlternatingSignalGenerator, s::MockIntegrationStrategy, ai::MockAssetInstance, ats)
+function generate_buy_signal(sg::AlternatingSignalGenerator, s::MockIntegrationStrategy, ii::MockInstrumentInstance, ats)
     sg.counter[] += 1
     return sg.counter[] % 2 == 1 ? 1.0 : 0.0  # Buy on odd calls
 end
 
-function generate_sell_signal(sg::AlternatingSignalGenerator, s::MockIntegrationStrategy, ai::MockAssetInstance, ats)
+function generate_sell_signal(sg::AlternatingSignalGenerator, s::MockIntegrationStrategy, ii::MockInstrumentInstance, ats)
     return sg.counter[] % 2 == 0 ? 1.0 : 0.0  # Sell on even calls
 end
 
-function should_trade(sg::AlternatingSignalGenerator, s::MockIntegrationStrategy, ai::MockAssetInstance, ats)
+function should_trade(sg::AlternatingSignalGenerator, s::MockIntegrationStrategy, ii::MockInstrumentInstance, ats)
     return true
 end
 
@@ -121,7 +122,7 @@ end
 function initialize_strategy!(s::MockIntegrationStrategy, sg::MockSignalGenerator)
     # Initialize strategy components
     s.orders = Dict{String, Any}[]
-    s.positions = Dict{MockAssetInstance, Float64}()
+    s.positions = Dict{MockInstrumentInstance, Float64}()
     s.balance = 10000.0
     return true
 end
@@ -135,12 +136,12 @@ function reset_strategy!(s::MockIntegrationStrategy, sg::MockSignalGenerator)
 end
 
 # Mock order execution functions
-function execute_mock_order!(s::MockIntegrationStrategy, ai::MockAssetInstance, side::Symbol, amount::Float64, price::Float64)
+function execute_mock_order!(s::MockIntegrationStrategy, ii::MockInstrumentInstance, side::Symbol, amount::Float64, price::Float64)
     order_id = "order_$(length(s.orders) + 1)"
     
     order = Dict{String, Any}(
         "id" => order_id,
-        "asset" => string(ai),
+        "asset" => string(ii),
         "side" => side,
         "amount" => amount,
         "price" => price,
@@ -151,15 +152,15 @@ function execute_mock_order!(s::MockIntegrationStrategy, ai::MockAssetInstance, 
     push!(s.orders, order)
     
     # Update position
-    if !haskey(s.positions, ai)
-        s.positions[ai] = 0.0
+    if !haskey(s.positions, ii)
+        s.positions[ii] = 0.0
     end
     
     if side == :buy
-        s.positions[ai] += amount
+        s.positions[ii] += amount
         s.balance -= amount * price
     elseif side == :sell
-        s.positions[ai] -= amount
+        s.positions[ii] -= amount
         s.balance += amount * price
     end
     
@@ -182,10 +183,10 @@ function initialize_mock_data!(s::MockIntegrationStrategy)
     return true
 end
 
-function track_mock_pnl!(s::MockIntegrationStrategy, ai::MockAssetInstance)
+function track_mock_pnl!(s::MockIntegrationStrategy, ii::MockInstrumentInstance)
     # Mock PnL tracking
-    if haskey(s.positions, ai)
-        position = s.positions[ai]
+    if haskey(s.positions, ii)
+        position = s.positions[ii]
         # Simple mock: assume current price is 50000 for BTC/USDT
         current_price = 50000.0
         unrealized_pnl = position * current_price - position * 49000.0  # Assume entry at 49000
@@ -196,30 +197,30 @@ end
 
 # Mock polling function
 function poll_strategy!(s::MockIntegrationStrategy, sg::MockSignalGenerator, ts::DateTime)
-    ai = MockBTCUSDT()
+    ii = MockBTCUSDT()
     ats = ts  # Mock timestamp
     
     # Check if trading is allowed
-    if !should_trade(sg, s, ai, ats)
+    if !should_trade(sg, s, ii, ats)
         return false
     end
     
     # Generate signals
-    buy_signal = generate_buy_signal(sg, s, ai, ats)
-    sell_signal = generate_sell_signal(sg, s, ai, ats)
+    buy_signal = generate_buy_signal(sg, s, ii, ats)
+    sell_signal = generate_sell_signal(sg, s, ii, ats)
     
     # Execute trades based on signals
     if buy_signal > 0.5
         # Execute buy order
         amount = 0.1  # Mock amount
         price = 50000.0  # Mock price
-        execute_mock_order!(s, ai, :buy, amount, price)
+        execute_mock_order!(s, ii, :buy, amount, price)
         return true
-    elseif sell_signal > 0.5 && haskey(s.positions, ai) && s.positions[ai] > 0
+    elseif sell_signal > 0.5 && haskey(s.positions, ii) && s.positions[ii] > 0
         # Execute sell order
-        amount = min(0.1, s.positions[ai])  # Mock amount, limited by position
+        amount = min(0.1, s.positions[ii])  # Mock amount, limited by position
         price = 50000.0  # Mock price
-        execute_mock_order!(s, ai, :sell, amount, price)
+        execute_mock_order!(s, ii, :sell, amount, price)
         return true
     end
     
@@ -240,8 +241,8 @@ end
             @test strategy.balance == 10000.0
             
             # Modify strategy state
-            ai = MockBTCUSDT()
-            execute_mock_order!(strategy, ai, :buy, 0.1, 50000.0)
+            ii = MockBTCUSDT()
+            execute_mock_order!(strategy, ii, :buy, 0.1, 50000.0)
             @test !isempty(strategy.orders)
             @test !isempty(strategy.positions)
             @test strategy.balance < 10000.0
@@ -274,12 +275,12 @@ end
         @testset "SimpleBuySignalGenerator" begin
             strategy = MockIntegrationStrategy()
             sg = SimpleBuySignalGenerator()
-            ai = MockBTCUSDT()
+            ii = MockBTCUSDT()
             ts = now()
             
             # Test signal generation (results are random, so test structure)
-            buy_signal = generate_buy_signal(sg, strategy, ai, ts)
-            sell_signal = generate_sell_signal(sg, strategy, ai, ts)
+            buy_signal = generate_buy_signal(sg, strategy, ii, ts)
+            sell_signal = generate_sell_signal(sg, strategy, ii, ts)
             
             @test isa(buy_signal, Float64)
             @test isa(sell_signal, Float64)
@@ -287,7 +288,7 @@ end
             @test sell_signal >= 0.0
             
             # Test should_trade
-            @test should_trade(sg, strategy, ai, ts) == true
+            @test should_trade(sg, strategy, ii, ts) == true
             
             # Test signal lifetime
             @test get_signal_lifetime(sg) == 0.2
@@ -296,36 +297,36 @@ end
         @testset "AlwaysBuySignalGenerator" begin
             strategy = MockIntegrationStrategy()
             sg = AlwaysBuySignalGenerator()
-            ai = MockBTCUSDT()
+            ii = MockBTCUSDT()
             ts = now()
             
             # Test consistent signals
-            @test generate_buy_signal(sg, strategy, ai, ts) == 1.0
-            @test generate_sell_signal(sg, strategy, ai, ts) == 0.0
-            @test should_trade(sg, strategy, ai, ts) == true
+            @test generate_buy_signal(sg, strategy, ii, ts) == 1.0
+            @test generate_sell_signal(sg, strategy, ii, ts) == 0.0
+            @test should_trade(sg, strategy, ii, ts) == true
         end
         
         @testset "NeverTradeSignalGenerator" begin
             strategy = MockIntegrationStrategy()
             sg = NeverTradeSignalGenerator()
-            ai = MockBTCUSDT()
+            ii = MockBTCUSDT()
             ts = now()
             
             # Test no trading signals
-            @test generate_buy_signal(sg, strategy, ai, ts) == 0.0
-            @test generate_sell_signal(sg, strategy, ai, ts) == 0.0
-            @test should_trade(sg, strategy, ai, ts) == false
+            @test generate_buy_signal(sg, strategy, ii, ts) == 0.0
+            @test generate_sell_signal(sg, strategy, ii, ts) == 0.0
+            @test should_trade(sg, strategy, ii, ts) == false
         end
     end
     
     @testset "Order Execution Flow Tests" begin
         @testset "Basic order execution" begin
             strategy = MockIntegrationStrategy()
-            ai = MockBTCUSDT()
+            ii = MockBTCUSDT()
             
             # Test buy order
             initial_balance = strategy.balance
-            order = execute_mock_order!(strategy, ai, :buy, 0.1, 50000.0)
+            order = execute_mock_order!(strategy, ii, :buy, 0.1, 50000.0)
             
             @test order["side"] == :buy
             @test order["amount"] == 0.1
@@ -335,14 +336,14 @@ end
             @test haskey(order, "timestamp")
             
             # Check position and balance updates
-            @test strategy.positions[ai] == 0.1
+            @test strategy.positions[ii] == 0.1
             @test strategy.balance == initial_balance - 0.1 * 50000.0
             
             # Test sell order
-            sell_order = execute_mock_order!(strategy, ai, :sell, 0.05, 51000.0)
+            sell_order = execute_mock_order!(strategy, ii, :sell, 0.05, 51000.0)
             
             @test sell_order["side"] == :sell
-            @test strategy.positions[ai] == 0.05  # 0.1 - 0.05
+            @test strategy.positions[ii] == 0.05  # 0.1 - 0.05
             @test strategy.balance > initial_balance - 0.1 * 50000.0  # Profit from higher sell price
         end
         
@@ -374,23 +375,23 @@ end
         
         @testset "Error handling in order execution" begin
             strategy = MockIntegrationStrategy()
-            ai = MockBTCUSDT()
+            ii = MockBTCUSDT()
             
             # Test order with zero amount
-            order = execute_mock_order!(strategy, ai, :buy, 0.0, 50000.0)
+            order = execute_mock_order!(strategy, ii, :buy, 0.0, 50000.0)
             @test order["amount"] == 0.0
-            @test strategy.positions[ai] == 0.0
+            @test strategy.positions[ii] == 0.0
             
             # Test order with zero price
-            order = execute_mock_order!(strategy, ai, :buy, 0.1, 0.0)
+            order = execute_mock_order!(strategy, ii, :buy, 0.1, 0.0)
             @test order["price"] == 0.0
             @test strategy.balance == 10000.0  # No balance change
             
             # Test selling more than available position
-            strategy.positions[ai] = 0.05
-            order = execute_mock_order!(strategy, ai, :sell, 0.1, 50000.0)
+            strategy.positions[ii] = 0.05
+            order = execute_mock_order!(strategy, ii, :sell, 0.1, 50000.0)
             @test order["amount"] == 0.1  # Order placed as requested
-            @test strategy.positions[ai] == -0.05  # Negative position (short)
+            @test strategy.positions[ii] == -0.05  # Negative position (short)
         end
     end
     
@@ -404,31 +405,31 @@ end
         
         @testset "PnL tracking" begin
             strategy = MockIntegrationStrategy()
-            ai = MockBTCUSDT()
+            ii = MockBTCUSDT()
             
             # Test PnL with no position
-            pnl = track_mock_pnl!(strategy, ai)
+            pnl = track_mock_pnl!(strategy, ii)
             @test pnl == 0.0
             
             # Test PnL with position
-            strategy.positions[ai] = 0.1
-            pnl = track_mock_pnl!(strategy, ai)
+            strategy.positions[ii] = 0.1
+            pnl = track_mock_pnl!(strategy, ii)
             @test pnl > 0.0  # Should be positive (current price > entry price in mock)
             
             # Test PnL with negative position
-            strategy.positions[ai] = -0.1
-            pnl = track_mock_pnl!(strategy, ai)
+            strategy.positions[ii] = -0.1
+            pnl = track_mock_pnl!(strategy, ii)
             @test pnl < 0.0  # Should be negative for short position when price rises
         end
         
         @testset "Performance metrics" begin
             strategy = MockIntegrationStrategy()
-            ai = MockBTCUSDT()
+            ii = MockBTCUSDT()
             
             # Execute several trades
-            execute_mock_order!(strategy, ai, :buy, 0.1, 49000.0)
-            execute_mock_order!(strategy, ai, :sell, 0.05, 51000.0)
-            execute_mock_order!(strategy, ai, :buy, 0.02, 50500.0)
+            execute_mock_order!(strategy, ii, :buy, 0.1, 49000.0)
+            execute_mock_order!(strategy, ii, :sell, 0.05, 51000.0)
+            execute_mock_order!(strategy, ii, :buy, 0.02, 50500.0)
             
             # Test order history
             @test length(strategy.orders) == 3
@@ -438,7 +439,7 @@ end
             
             # Test position tracking
             expected_position = 0.1 - 0.05 + 0.02  # 0.07
-            @test strategy.positions[ai] ≈ expected_position
+            @test strategy.positions[ii] ≈ expected_position
             
             # Test balance tracking
             expected_balance = 10000.0 - 0.1 * 49000.0 + 0.05 * 51000.0 - 0.02 * 50500.0
@@ -468,8 +469,8 @@ end
             @test length(strategy.orders) == 2
             
             # Check cumulative position
-            ai = MockBTCUSDT()
-            @test strategy.positions[ai] == 0.2  # 2 * 0.1
+            ii = MockBTCUSDT()
+            @test strategy.positions[ii] == 0.2  # 2 * 0.1
         end
         
         @testset "Polling with NeverTradeSignalGenerator" begin
@@ -545,8 +546,8 @@ end
                 end
                 
                 # Track PnL after each cycle
-                ai = MockBTCUSDT()
-                pnl = track_mock_pnl!(strategy, ai)
+                ii = MockBTCUSDT()
+                pnl = track_mock_pnl!(strategy, ii)
                 # PnL should be calculable (not error)
                 @test isa(pnl, Float64)
             end

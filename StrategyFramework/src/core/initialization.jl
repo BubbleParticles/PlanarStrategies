@@ -1,6 +1,7 @@
 # Strategy initialization system for StrategyFramework
 
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 using Planar
 
 # Import strategy lifecycle types and functions
@@ -106,7 +107,7 @@ function reset_strategy!(s::SC, sg::SignalGenerator)
     empty!(position_tracker.extremas)
     empty!(position_tracker.hl_trackers)
     empty!(position_tracker.backoff)
-    position_tracker.uni_iter = (AssetInstance[], Ref(DateTime(0)))
+    position_tracker.uni_iter = (InstrumentInstance[], Ref(DateTime(0)))
     s[:position_tracker] = position_tracker
     
     # Reset performance metrics but preserve configuration
@@ -373,28 +374,28 @@ function poll_strategy!(s::SC, sg::SignalGenerator, ts::DateTime)
     track_pnl!(s, ats)
     
     # Process each asset in the universe
-    foreach(s.universe) do ai
+    foreach(s.universe) do ii
         try
             # Check if we should trade this asset
-            if should_trade(sg, s, ai, ats)
+            if should_trade(sg, s, ii, ats)
                 # Generate buy signal
-                buy_signal = generate_buy_signal(sg, s, ai, ats)
+                buy_signal = generate_buy_signal(sg, s, ii, ats)
                 if buy_signal
-                    handle_buy_signal!(s, ai, ats, ts)
+                    handle_buy_signal!(s, ii, ats, ts)
                 end
                 
                 # Generate sell signal
-                sell_signal = generate_sell_signal(sg, s, ai, ats)
+                sell_signal = generate_sell_signal(sg, s, ii, ats)
                 if sell_signal
-                    handle_sell_signal!(s, ai, ats, ts)
+                    handle_sell_signal!(s, ii, ats, ts)
                 end
             end
             
             # Update tracking for this asset
-            update_asset_tracking!(s, ai, ats)
+            update_asset_tracking!(s, ii, ats)
             
         catch e
-            @error "Error processing asset in strategy poll" asset=ai exception=e
+            @error "Error processing asset in strategy poll" asset=ii exception=e
         end
     end
     
@@ -427,24 +428,24 @@ end
 
 # Helper functions for signal handling
 """
-    handle_buy_signal!(s::SC, ai::AssetInstance, ats::DateTime, ts::DateTime)
+    handle_buy_signal!(s::SC, ii::InstrumentInstance, ats::DateTime, ts::DateTime)
 
 Handle a buy signal by executing appropriate trading logic.
 """
-function handle_buy_signal!(s::SC, ai::AssetInstance, ats::DateTime, ts::DateTime)
+function handle_buy_signal!(s::SC, ii::InstrumentInstance, ats::DateTime, ts::DateTime)
     # This will be implemented in the trading modules
-    @debug "Buy signal received" asset=ai timestamp=ts
+    @debug "Buy signal received" asset=ii timestamp=ts
     # TODO: Implement in trading/order_management.jl
 end
 
 """
-    handle_sell_signal!(s::SC, ai::AssetInstance, ats::DateTime, ts::DateTime)
+    handle_sell_signal!(s::SC, ii::InstrumentInstance, ats::DateTime, ts::DateTime)
 
 Handle a sell signal by executing appropriate trading logic.
 """
-function handle_sell_signal!(s::SC, ai::AssetInstance, ats::DateTime, ts::DateTime)
+function handle_sell_signal!(s::SC, ii::InstrumentInstance, ats::DateTime, ts::DateTime)
     # This will be implemented in the trading modules
-    @debug "Sell signal received" asset=ai timestamp=ts
+    @debug "Sell signal received" asset=ii timestamp=ts
     # TODO: Implement in trading/order_management.jl
 end
 
@@ -527,7 +528,7 @@ function basic_strategy_reset!(s::SC)
     empty!(position_tracker.extremas)
     empty!(position_tracker.hl_trackers)
     empty!(position_tracker.backoff)
-    position_tracker.uni_iter = (AssetInstance[], Ref(DateTime(0)))
+    position_tracker.uni_iter = (InstrumentInstance[], Ref(DateTime(0)))
     s[:position_tracker] = position_tracker
     
     # Reset performance metrics
@@ -599,11 +600,11 @@ function initialize_warmup_data!(s::SC, warmup_period::Period)
     s[:warmup_period] = warmup_period
     
     # Initialize data for warmup period
-    foreach(s.universe) do ai
+    foreach(s.universe) do ii
         try
-            initialize_asset_warmup_data!(s, ai, warmup_start, current_time)
+            initialize_asset_warmup_data!(s, ii, warmup_start, current_time)
         catch e
-            @warn "Failed to initialize warmup data for asset" asset=ai exception=e
+            @warn "Failed to initialize warmup data for asset" asset=ii exception=e
         end
     end
     
@@ -611,19 +612,19 @@ function initialize_warmup_data!(s::SC, warmup_period::Period)
 end
 
 """
-    initialize_asset_warmup_data!(s::SC, ai::AssetInstance, start_time::DateTime, end_time::DateTime)
+    initialize_asset_warmup_data!(s::SC, ii::InstrumentInstance, start_time::DateTime, end_time::DateTime)
 
 Initialize warmup data for a specific asset.
 """
-function initialize_asset_warmup_data!(s::SC, ai::AssetInstance, start_time::DateTime, end_time::DateTime)
-    @debug "Initializing asset warmup data" asset=ai start_time=start_time end_time=end_time
+function initialize_asset_warmup_data!(s::SC, ii::InstrumentInstance, start_time::DateTime, end_time::DateTime)
+    @debug "Initializing asset warmup data" asset=ii start_time=start_time end_time=end_time
     
     # Store asset warmup information
     if !haskey(s.attrs, :asset_warmup_data)
         s[:asset_warmup_data] = Dict()
     end
     
-    s[:asset_warmup_data][ai] = (start_time=start_time, end_time=end_time, initialized=true)
+    s[:asset_warmup_data][ii] = (start_time=start_time, end_time=end_time, initialized=true)
     
     nothing
 end

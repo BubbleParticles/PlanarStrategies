@@ -2,8 +2,10 @@
 # Provides comprehensive logging for trading operations, signals, and errors
 
 using Logging
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 using Printf
+using LoggingExtras: TeeLogger
 
 # Global logger configuration
 const STRATEGY_LOGGER = Ref{Union{AbstractLogger, Nothing}}(nothing)
@@ -69,14 +71,14 @@ function setup_logging!(level::LogLevel = Logging.Info;
 end
 
 """
-    log_trade(s::SC, ai, action::String, amount::Real, price::Real; 
+    log_trade(s::SC, ii, action::String, amount::Real, price::Real; 
               order_id = nothing, side = nothing, kwargs...)
 
 Log trading operations with structured information.
 
 # Arguments
 - `s::SC`: Strategy instance
-- `ai`: Asset instance
+- `ii`: Instrument instance
 - `action::String`: Trading action (e.g., "BUY", "SELL", "CANCEL")
 - `amount::Real`: Trade amount
 - `price::Real`: Trade price
@@ -84,11 +86,11 @@ Log trading operations with structured information.
 - `side`: Optional position side
 - `kwargs...`: Additional parameters to log
 """
-function log_trade(s::SC, ai, action::String, amount::Real, price::Real; 
+function log_trade(s::SC, ii, action::String, amount::Real, price::Real; 
                   order_id = nothing, side = nothing, kwargs...)
     timestamp = now()
     strategy_id = string(typeof(s))
-    asset_symbol = string(ai)
+    asset_symbol = string(ii)
     
     log_msg = @sprintf("[TRADE] %s | %s | %s | %s | Amount: %.8f | Price: %.8f", 
                       timestamp, strategy_id, asset_symbol, action, amount, price)
@@ -110,25 +112,25 @@ function log_trade(s::SC, ai, action::String, amount::Real, price::Real;
 end
 
 """
-    log_signal(s::SC, ai, signal_type::String, signal_value; 
+    log_signal(s::SC, ii, signal_type::String, signal_value; 
                confidence = nothing, lifetime = nothing, kwargs...)
 
 Log signal generation and analysis with detailed information.
 
 # Arguments
 - `s::SC`: Strategy instance
-- `ai`: Asset instance
+- `ii`: Instrument instance
 - `signal_type::String`: Type of signal (e.g., "BUY_SIGNAL", "SELL_SIGNAL")
 - `signal_value`: Signal value or strength
 - `confidence`: Optional confidence level
 - `lifetime`: Optional signal lifetime
 - `kwargs...`: Additional signal parameters
 """
-function log_signal(s::SC, ai, signal_type::String, signal_value; 
+function log_signal(s::SC, ii, signal_type::String, signal_value; 
                    confidence = nothing, lifetime = nothing, kwargs...)
     timestamp = now()
     strategy_id = string(typeof(s))
-    asset_symbol = string(ai)
+    asset_symbol = string(ii)
     
     log_msg = @sprintf("[SIGNAL] %s | %s | %s | %s | Value: %s", 
                       timestamp, strategy_id, asset_symbol, signal_type, signal_value)
@@ -150,25 +152,25 @@ function log_signal(s::SC, ai, signal_type::String, signal_value;
 end
 
 """
-    log_position_update(s::SC, ai, position_size::Real, unrealized_pnl::Real; 
+    log_position_update(s::SC, ii, position_size::Real, unrealized_pnl::Real; 
                        realized_pnl = nothing, margin_used = nothing, kwargs...)
 
 Log position updates and PnL changes.
 
 # Arguments
 - `s::SC`: Strategy instance
-- `ai`: Asset instance
+- `ii`: Instrument instance
 - `position_size::Real`: Current position size
 - `unrealized_pnl::Real`: Unrealized PnL
 - `realized_pnl`: Optional realized PnL
 - `margin_used`: Optional margin usage
 - `kwargs...`: Additional position parameters
 """
-function log_position_update(s::SC, ai, position_size::Real, unrealized_pnl::Real; 
+function log_position_update(s::SC, ii, position_size::Real, unrealized_pnl::Real; 
                            realized_pnl = nothing, margin_used = nothing, kwargs...)
     timestamp = now()
     strategy_id = string(typeof(s))
-    asset_symbol = string(ai)
+    asset_symbol = string(ii)
     
     log_msg = @sprintf("[POSITION] %s | %s | %s | Size: %.8f | UnrealizedPnL: %.8f", 
                       timestamp, strategy_id, asset_symbol, position_size, unrealized_pnl)
@@ -190,25 +192,25 @@ function log_position_update(s::SC, ai, position_size::Real, unrealized_pnl::Rea
 end
 
 """
-    log_error(s::SC, ai, error_type::String, error_msg::String; 
+    log_error(s::SC, ii, error_type::String, error_msg::String; 
               exception = nothing, order_id = nothing, kwargs...)
 
 Log errors with comprehensive context information.
 
 # Arguments
 - `s::SC`: Strategy instance
-- `ai`: Asset instance
+- `ii`: Instrument instance
 - `error_type::String`: Type of error (e.g., "ORDER_ERROR", "DATA_ERROR")
 - `error_msg::String`: Error message
 - `exception`: Optional exception object
 - `order_id`: Optional related order ID
 - `kwargs...`: Additional error context
 """
-function log_error(s::SC, ai, error_type::String, error_msg::String; 
+function log_error(s::SC, ii, error_type::String, error_msg::String; 
                   exception = nothing, order_id = nothing, kwargs...)
     timestamp = now()
     strategy_id = string(typeof(s))
-    asset_symbol = string(ai)
+    asset_symbol = string(ii)
     
     log_msg = @sprintf("[ERROR] %s | %s | %s | %s | %s", 
                       timestamp, strategy_id, asset_symbol, error_type, error_msg)
@@ -269,25 +271,25 @@ function log_performance(s::SC, total_pnl::Real, win_rate::Real, total_trades::I
 end
 
 """
-    log_market_data(s::SC, ai, data_type::String, timestamp::DateTime; 
+    log_market_data(s::SC, ii, data_type::String, timestamp::DateTime; 
                    price = nothing, volume = nothing, kwargs...)
 
 Log market data updates and quality issues.
 
 # Arguments
 - `s::SC`: Strategy instance
-- `ai`: Asset instance
+- `ii`: Instrument instance
 - `data_type::String`: Type of market data (e.g., "OHLCV", "TICKER", "ORDERBOOK")
 - `timestamp::DateTime`: Data timestamp
 - `price`: Optional price information
 - `volume`: Optional volume information
 - `kwargs...`: Additional data parameters
 """
-function log_market_data(s::SC, ai, data_type::String, timestamp::DateTime; 
+function log_market_data(s::SC, ii, data_type::String, timestamp::DateTime; 
                         price = nothing, volume = nothing, kwargs...)
     log_timestamp = now()
     strategy_id = string(typeof(s))
-    asset_symbol = string(ai)
+    asset_symbol = string(ii)
     
     log_msg = @sprintf("[DATA] %s | %s | %s | %s | DataTime: %s", 
                       log_timestamp, strategy_id, asset_symbol, data_type, timestamp)
@@ -405,9 +407,4 @@ function create_log_summary(log_file::String;
     end
     
     return summary
-end
-
-# Initialize logging with default settings
-function __init__()
-    setup_logging!()
 end

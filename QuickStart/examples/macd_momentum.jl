@@ -22,11 +22,11 @@ function setsignals!(s)
 end
 
 # Basic MACD Strategy
-function isbuy(s::SC, ai, ats)
+function isbuy(s::SC, ii, ats)
     # Get MACD values
-    macd_line = signal_value(s, ai, :macd_line, ats)
-    macd_signal = signal_value(s, ai, :macd_signal, ats)
-    macd_histogram = signal_value(s, ai, :macd_histogram, ats)
+    macd_line = signal_value(s, ii, :macd_line, ats)
+    macd_signal = signal_value(s, ii, :macd_signal, ats)
+    macd_histogram = signal_value(s, ii, :macd_histogram, ats)
     
     # Validate signals
     if any(isnothing, [macd_line, macd_signal, macd_histogram])
@@ -42,11 +42,11 @@ function isbuy(s::SC, ai, ats)
     return bullish_crossover && positive_momentum
 end
 
-function issell(s::SC, ai, ats)
+function issell(s::SC, ii, ats)
     # Get MACD values
-    macd_line = signal_value(s, ai, :macd_line, ats)
-    macd_signal = signal_value(s, ai, :macd_signal, ats)
-    macd_histogram = signal_value(s, ai, :macd_histogram, ats)
+    macd_line = signal_value(s, ii, :macd_line, ats)
+    macd_signal = signal_value(s, ii, :macd_signal, ats)
+    macd_histogram = signal_value(s, ii, :macd_histogram, ats)
     
     # Validate signals
     if any(isnothing, [macd_line, macd_signal, macd_histogram])
@@ -63,12 +63,12 @@ function issell(s::SC, ai, ats)
 end
 
 # Enhanced MACD with Trend Filter
-function isbuy_with_trend(s::SC, ai, ats)
+function isbuy_with_trend(s::SC, ii, ats)
     # Get MACD and trend values
-    macd_line = signal_value(s, ai, :macd_line, ats)
-    macd_signal = signal_value(s, ai, :macd_signal, ats)
-    macd_histogram = signal_value(s, ai, :macd_histogram, ats)
-    trend_ma = signal_value(s, ai, :trend_ma, ats)
+    macd_line = signal_value(s, ii, :macd_line, ats)
+    macd_signal = signal_value(s, ii, :macd_signal, ats)
+    macd_histogram = signal_value(s, ii, :macd_histogram, ats)
+    trend_ma = signal_value(s, ii, :trend_ma, ats)
     
     # Validate signals
     if any(isnothing, [macd_line, macd_signal, macd_histogram, trend_ma])
@@ -76,7 +76,7 @@ function isbuy_with_trend(s::SC, ai, ats)
     end
     
     # Get current price
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     current_price = data.close[idx]
     
@@ -91,12 +91,12 @@ function isbuy_with_trend(s::SC, ai, ats)
     return bullish_crossover && uptrend && strong_momentum
 end
 
-function issell_with_trend(s::SC, ai, ats)
+function issell_with_trend(s::SC, ii, ats)
     # Get MACD and trend values
-    macd_line = signal_value(s, ai, :macd_line, ats)
-    macd_signal = signal_value(s, ai, :macd_signal, ats)
-    macd_histogram = signal_value(s, ai, :macd_histogram, ats)
-    trend_ma = signal_value(s, ai, :trend_ma, ats)
+    macd_line = signal_value(s, ii, :macd_line, ats)
+    macd_signal = signal_value(s, ii, :macd_signal, ats)
+    macd_histogram = signal_value(s, ii, :macd_histogram, ats)
+    trend_ma = signal_value(s, ii, :trend_ma, ats)
     
     # Validate signals
     if any(isnothing, [macd_line, macd_signal, macd_histogram, trend_ma])
@@ -104,7 +104,7 @@ function issell_with_trend(s::SC, ai, ats)
     end
     
     # Get current price
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     current_price = data.close[idx]
     
@@ -120,9 +120,9 @@ function issell_with_trend(s::SC, ai, ats)
 end
 
 # MACD Divergence Strategy
-function isbuy_with_divergence(s::SC, ai, ats)
-    macd_line = signal_value(s, ai, :macd_line, ats)
-    macd_signal = signal_value(s, ai, :macd_signal, ats)
+function isbuy_with_divergence(s::SC, ii, ats)
+    macd_line = signal_value(s, ii, :macd_line, ats)
+    macd_signal = signal_value(s, ii, :macd_signal, ats)
     
     if isnothing(macd_line) || isnothing(macd_signal)
         return false
@@ -134,7 +134,7 @@ function isbuy_with_divergence(s::SC, ai, ats)
     end
     
     # Check for bullish divergence
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     
     if idx < 20  # Need sufficient history
@@ -148,7 +148,7 @@ function isbuy_with_divergence(s::SC, ai, ats)
     # Find recent price low and corresponding MACD low
     price_low_idx = argmin(data.low[start_idx:idx]) + start_idx - 1
     price_low = data.low[price_low_idx]
-    macd_at_price_low = signal_value(s, ai, :macd_line, data.timestamp[price_low_idx])
+    macd_at_price_low = signal_value(s, ii, :macd_line, data.timestamp[price_low_idx])
     
     if isnothing(macd_at_price_low)
         return true  # Just use basic crossover
@@ -163,9 +163,9 @@ function isbuy_with_divergence(s::SC, ai, ats)
     return true  # Basic crossover is already confirmed, divergence is bonus
 end
 
-function issell_with_divergence(s::SC, ai, ats)
-    macd_line = signal_value(s, ai, :macd_line, ats)
-    macd_signal = signal_value(s, ai, :macd_signal, ats)
+function issell_with_divergence(s::SC, ii, ats)
+    macd_line = signal_value(s, ii, :macd_line, ats)
+    macd_signal = signal_value(s, ii, :macd_signal, ats)
     
     if isnothing(macd_line) || isnothing(macd_signal)
         return false
@@ -177,7 +177,7 @@ function issell_with_divergence(s::SC, ai, ats)
     end
     
     # Check for bearish divergence
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     
     if idx < 20  # Need sufficient history
@@ -191,7 +191,7 @@ function issell_with_divergence(s::SC, ai, ats)
     # Find recent price high and corresponding MACD high
     price_high_idx = argmax(data.high[start_idx:idx]) + start_idx - 1
     price_high = data.high[price_high_idx]
-    macd_at_price_high = signal_value(s, ai, :macd_line, data.timestamp[price_high_idx])
+    macd_at_price_high = signal_value(s, ii, :macd_line, data.timestamp[price_high_idx])
     
     if isnothing(macd_at_price_high)
         return true  # Just use basic crossover
@@ -207,16 +207,16 @@ function issell_with_divergence(s::SC, ai, ats)
 end
 
 # Zero Line Cross Strategy
-function isbuy_zero_cross(s::SC, ai, ats)
-    macd_line = signal_value(s, ai, :macd_line, ats)
-    macd_histogram = signal_value(s, ai, :macd_histogram, ats)
+function isbuy_zero_cross(s::SC, ii, ats)
+    macd_line = signal_value(s, ii, :macd_line, ats)
+    macd_histogram = signal_value(s, ii, :macd_histogram, ats)
     
     if isnothing(macd_line) || isnothing(macd_histogram)
         return false
     end
     
     # Get previous MACD value for crossover detection
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     
     if idx < 2
@@ -224,7 +224,7 @@ function isbuy_zero_cross(s::SC, ai, ats)
     end
     
     prev_ats = data.timestamp[idx-1]
-    prev_macd = signal_value(s, ai, :macd_line, prev_ats)
+    prev_macd = signal_value(s, ii, :macd_line, prev_ats)
     
     if isnothing(prev_macd)
         return false
@@ -237,16 +237,16 @@ function isbuy_zero_cross(s::SC, ai, ats)
     return zero_cross_bullish && positive_momentum
 end
 
-function issell_zero_cross(s::SC, ai, ats)
-    macd_line = signal_value(s, ai, :macd_line, ats)
-    macd_histogram = signal_value(s, ai, :macd_histogram, ats)
+function issell_zero_cross(s::SC, ii, ats)
+    macd_line = signal_value(s, ii, :macd_line, ats)
+    macd_histogram = signal_value(s, ii, :macd_histogram, ats)
     
     if isnothing(macd_line) || isnothing(macd_histogram)
         return false
     end
     
     # Get previous MACD value for crossover detection
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     
     if idx < 2
@@ -254,7 +254,7 @@ function issell_zero_cross(s::SC, ai, ats)
     end
     
     prev_ats = data.timestamp[idx-1]
-    prev_macd = signal_value(s, ai, :macd_line, prev_ats)
+    prev_macd = signal_value(s, ii, :macd_line, prev_ats)
     
     if isnothing(prev_macd)
         return false

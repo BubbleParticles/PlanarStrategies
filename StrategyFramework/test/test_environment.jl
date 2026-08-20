@@ -86,7 +86,7 @@ using StrategyFramework
         end
     end
     
-    @testset "Asset configuration functions" begin
+    @testset "Instrument configuration functions" begin
         # Clear existing assets for clean testing
         empty!(ASSETS_CT)
         

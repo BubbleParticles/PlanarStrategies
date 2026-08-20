@@ -1,42 +1,43 @@
 # PnL tracking system for StrategyFramework
 
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 using Statistics
 using Planar
 # CircularBuffer is available via @strategyenv!() through Data.DataStructures
 
 """
-    trackpnl!(s::SC, ai::AssetInstance, ats::DateTime; interval::Period = Hour(1))
+    trackpnl!(s::SC, ii::InstrumentInstance, ats::DateTime; interval::Period = Hour(1))
 
 Track PnL for a specific asset over a given interval.
 This function calculates and stores PnL metrics for performance monitoring.
 """
-function trackpnl!(s::SC, ai::AssetInstance, ats::DateTime; interval::Period = Hour(1))
-    @debug "Tracking PnL" asset=ai timestamp=ats interval=interval
+function trackpnl!(s::SC, ii::InstrumentInstance, ats::DateTime; interval::Period = Hour(1))
+    @debug "Tracking PnL" asset=ii timestamp=ats interval=interval
     
     try
         # Initialize PnL tracking structures if needed
-        init_pnl_tracking!(s, ai)
+        init_pnl_tracking!(s, ii)
         
         # Calculate current PnL
-        current_pnl = calculate_current_pnl(s, ai, ats)
+        current_pnl = calculate_current_pnl(s, ii, ats)
         
         # Update PnL history
-        update_pnl_history!(s, ai, ats, current_pnl, interval)
+        update_pnl_history!(s, ii, ats, current_pnl, interval)
         
         # Update performance metrics
-        update_performance_metrics!(s, ai, current_pnl, ats)
+        update_performance_metrics!(s, ii, current_pnl, ats)
         
         # Update peak cash tracking
-        peak_cash!(s, ai, ats)
+        peak_cash!(s, ii, ats)
         
         # Calculate and update drawdown metrics
-        update_drawdown_metrics!(s, ai, ats)
+        update_drawdown_metrics!(s, ii, ats)
         
-        @debug "PnL tracking completed" asset=ai pnl=current_pnl
+        @debug "PnL tracking completed" asset=ii pnl=current_pnl
         
     catch e
-        @error "Failed to track PnL" asset=ai error=e
+        @error "Failed to track PnL" asset=ii error=e
     end
     
     nothing
@@ -56,8 +57,8 @@ function trackpnl!(s::SC, ats::DateTime; interval::Period = Hour(1))
     
     for asset_str in assets
         try
-            ai = AssetInstance(asset_str, exchange)
-            trackpnl!(s, ai, ats; interval=interval)
+            ii = InstrumentInstance(asset_str, exchange)
+            trackpnl!(s, ii, ats; interval=interval)
         catch e
             @error "Failed to track PnL for asset" asset=asset_str error=e
         end
@@ -70,37 +71,37 @@ function trackpnl!(s::SC, ats::DateTime; interval::Period = Hour(1))
 end
 
 """
-    init_pnl_tracking!(s::SC, ai::AssetInstance)
+    init_pnl_tracking!(s::SC, ii::InstrumentInstance)
 
 Initialize PnL tracking structures for an asset.
 """
-function init_pnl_tracking!(s::SC, ai::AssetInstance)
+function init_pnl_tracking!(s::SC, ii::InstrumentInstance)
     # Initialize PnL history
     if !haskey(s.attrs, :pnl_history)
-        s[:pnl_history] = Dict{AssetInstance, CircularBuffer}()
+        s[:pnl_history] = Dict{InstrumentInstance, CircularBuffer}()
     end
     
-    if !haskey(s[:pnl_history], ai)
+    if !haskey(s[:pnl_history], ii)
         # Store last 1000 PnL data points
-        s[:pnl_history][ai] = CircularBuffer{Tuple{DateTime, Float64}}(1000)
+        s[:pnl_history][ii] = CircularBuffer{Tuple{DateTime, Float64}}(1000)
     end
     
     # Initialize trade history
     if !haskey(s.attrs, :trade_history)
-        s[:trade_history] = Dict{AssetInstance, Vector{Dict{Symbol, Any}}}()
+        s[:trade_history] = Dict{InstrumentInstance, Vector{Dict{Symbol, Any}}}()
     end
     
-    if !haskey(s[:trade_history], ai)
-        s[:trade_history][ai] = Dict{Symbol, Any}[]
+    if !haskey(s[:trade_history], ii)
+        s[:trade_history][ii] = Dict{Symbol, Any}[]
     end
     
     # Initialize performance metrics
     if !haskey(s.attrs, :performance_metrics)
-        s[:performance_metrics] = Dict{AssetInstance, Dict{Symbol, Any}}()
+        s[:performance_metrics] = Dict{InstrumentInstance, Dict{Symbol, Any}}()
     end
     
-    if !haskey(s[:performance_metrics], ai)
-        s[:performance_metrics][ai] = Dict{Symbol, Any}(
+    if !haskey(s[:performance_metrics], ii)
+        s[:performance_metrics][ii] = Dict{Symbol, Any}(
             :total_pnl => 0.0,
             :realized_pnl => 0.0,
             :unrealized_pnl => 0.0,
@@ -122,24 +123,24 @@ function init_pnl_tracking!(s::SC, ai::AssetInstance)
 end
 
 """
-    calculate_current_pnl(s::SC, ai::AssetInstance, ats::DateTime)
+    calculate_current_pnl(s::SC, ii::InstrumentInstance, ats::DateTime)
 
 Calculate the current PnL for an asset.
 """
-function calculate_current_pnl(s::SC, ai::AssetInstance, ats::DateTime)
+function calculate_current_pnl(s::SC, ii::InstrumentInstance, ats::DateTime)
     try
         # Get current position
-        position = get_position(s, ai)
+        position = get_position(s, ii)
         
         if isnothing(position) || iszero(position.size)
             return 0.0  # No position, no PnL
         end
         
         # Get current market price
-        current_price = get_current_price(s, ai, ats)
+        current_price = get_current_price(s, ii, ats)
         
         if isnothing(current_price)
-            @warn "Cannot calculate PnL: no current price available" asset=ai
+            @warn "Cannot calculate PnL: no current price available" asset=ii
             return 0.0
         end
         
@@ -155,46 +156,46 @@ function calculate_current_pnl(s::SC, ai::AssetInstance, ats::DateTime)
         end
         
         # Get realized PnL from trade history
-        realized_pnl = get_realized_pnl(s, ai)
+        realized_pnl = get_realized_pnl(s, ii)
         
         # Total PnL = Realized + Unrealized
         total_pnl = realized_pnl + unrealized_pnl
         
-        @debug "PnL calculated" asset=ai realized=realized_pnl unrealized=unrealized_pnl total=total_pnl
+        @debug "PnL calculated" asset=ii realized=realized_pnl unrealized=unrealized_pnl total=total_pnl
         
         return total_pnl
         
     catch e
-        @error "Failed to calculate current PnL" asset=ai error=e
+        @error "Failed to calculate current PnL" asset=ii error=e
         return 0.0
     end
 end
 
 """
-    get_position(s::SC, ai::AssetInstance)
+    get_position(s::SC, ii::InstrumentInstance)
 
 Get the current position for an asset.
 """
-function get_position(s::SC, ai::AssetInstance)
+function get_position(s::SC, ii::InstrumentInstance)
     try
         # This would integrate with Planar's position tracking
         # For now, return a mock position structure
         positions = get(s.attrs, :positions, Dict())
-        return get(positions, ai, nothing)
+        return get(positions, ii, nothing)
     catch
         return nothing
     end
 end
 
 """
-    get_current_price(s::SC, ai::AssetInstance, ats::DateTime)
+    get_current_price(s::SC, ii::InstrumentInstance, ats::DateTime)
 
 Get the current market price for an asset.
 """
-function get_current_price(s::SC, ai::AssetInstance, ats::DateTime)
+function get_current_price(s::SC, ii::InstrumentInstance, ats::DateTime)
     try
         # Get OHLCV data
-        ohlcv_data = get(get(s.attrs, :ohlcv_data, Dict()), ai, nothing)
+        ohlcv_data = get(get(s.attrs, :ohlcv_data, Dict()), ii, nothing)
         
         if isnothing(ohlcv_data) || isempty(ohlcv_data)
             return nothing
@@ -205,18 +206,18 @@ function get_current_price(s::SC, ai::AssetInstance, ats::DateTime)
         return 50000.0  # Mock price - in practice would get from OHLCV data
         
     catch e
-        @error "Failed to get current price" asset=ai error=e
+        @error "Failed to get current price" asset=ii error=e
         return nothing
     end
 end
 
 """
-    get_realized_pnl(s::SC, ai::AssetInstance)
+    get_realized_pnl(s::SC, ii::InstrumentInstance)
 
 Get the realized PnL from completed trades.
 """
-function get_realized_pnl(s::SC, ai::AssetInstance)
-    trade_history = get(get(s.attrs, :trade_history, Dict()), ai, [])
+function get_realized_pnl(s::SC, ii::InstrumentInstance)
+    trade_history = get(get(s.attrs, :trade_history, Dict()), ii, [])
     
     realized_pnl = 0.0
     for trade in trade_history
@@ -229,12 +230,12 @@ function get_realized_pnl(s::SC, ai::AssetInstance)
 end
 
 """
-    update_pnl_history!(s::SC, ai::AssetInstance, ats::DateTime, pnl::Float64, interval::Period)
+    update_pnl_history!(s::SC, ii::InstrumentInstance, ats::DateTime, pnl::Float64, interval::Period)
 
 Update the PnL history for an asset.
 """
-function update_pnl_history!(s::SC, ai::AssetInstance, ats::DateTime, pnl::Float64, interval::Period)
-    pnl_history = s[:pnl_history][ai]
+function update_pnl_history!(s::SC, ii::InstrumentInstance, ats::DateTime, pnl::Float64, interval::Period)
+    pnl_history = s[:pnl_history][ii]
     
     # Check if we should add a new data point based on interval
     should_update = if isempty(pnl_history)
@@ -246,19 +247,19 @@ function update_pnl_history!(s::SC, ai::AssetInstance, ats::DateTime, pnl::Float
     
     if should_update
         push!(pnl_history, (ats, pnl))
-        @debug "PnL history updated" asset=ai timestamp=ats pnl=pnl
+        @debug "PnL history updated" asset=ii timestamp=ats pnl=pnl
     end
     
     nothing
 end
 
 """
-    update_performance_metrics!(s::SC, ai::AssetInstance, current_pnl::Float64, ats::DateTime)
+    update_performance_metrics!(s::SC, ii::InstrumentInstance, current_pnl::Float64, ats::DateTime)
 
 Update performance metrics for an asset.
 """
-function update_performance_metrics!(s::SC, ai::AssetInstance, current_pnl::Float64, ats::DateTime)
-    metrics = s[:performance_metrics][ai]
+function update_performance_metrics!(s::SC, ii::InstrumentInstance, current_pnl::Float64, ats::DateTime)
+    metrics = s[:performance_metrics][ii]
     
     # Update basic metrics
     metrics[:total_pnl] = current_pnl
@@ -271,21 +272,21 @@ function update_performance_metrics!(s::SC, ai::AssetInstance, current_pnl::Floa
     end
     
     # Calculate trade statistics
-    update_trade_statistics!(s, ai, metrics)
+    update_trade_statistics!(s, ii, metrics)
     
     # Calculate risk metrics
-    update_risk_metrics!(s, ai, metrics)
+    update_risk_metrics!(s, ii, metrics)
     
     nothing
 end
 
 """
-    update_trade_statistics!(s::SC, ai::AssetInstance, metrics::Dict{Symbol, Any})
+    update_trade_statistics!(s::SC, ii::InstrumentInstance, metrics::Dict{Symbol, Any})
 
 Update trade-related statistics.
 """
-function update_trade_statistics!(s::SC, ai::AssetInstance, metrics::Dict{Symbol, Any})
-    trade_history = get(get(s.attrs, :trade_history, Dict()), ai, [])
+function update_trade_statistics!(s::SC, ii::InstrumentInstance, metrics::Dict{Symbol, Any})
+    trade_history = get(get(s.attrs, :trade_history, Dict()), ii, [])
     
     # Count trades
     closed_trades = filter(t -> get(t, :status, :open) == :closed, trade_history)
@@ -328,12 +329,12 @@ function update_trade_statistics!(s::SC, ai::AssetInstance, metrics::Dict{Symbol
 end
 
 """
-    update_risk_metrics!(s::SC, ai::AssetInstance, metrics::Dict{Symbol, Any})
+    update_risk_metrics!(s::SC, ii::InstrumentInstance, metrics::Dict{Symbol, Any})
 
 Update risk-related metrics like Sharpe ratio.
 """
-function update_risk_metrics!(s::SC, ai::AssetInstance, metrics::Dict{Symbol, Any})
-    pnl_history = get(get(s.attrs, :pnl_history, Dict()), ai, nothing)
+function update_risk_metrics!(s::SC, ii::InstrumentInstance, metrics::Dict{Symbol, Any})
+    pnl_history = get(get(s.attrs, :pnl_history, Dict()), ii, nothing)
     
     if isnothing(pnl_history) || length(pnl_history) < 2
         metrics[:sharpe_ratio] = 0.0
@@ -366,24 +367,24 @@ function update_risk_metrics!(s::SC, ai::AssetInstance, metrics::Dict{Symbol, An
 end
 
 """
-    peak_cash!(s::SC, ai::AssetInstance, ats::DateTime)
+    peak_cash!(s::SC, ii::InstrumentInstance, ats::DateTime)
 
 Update peak cash tracking for an asset.
 """
-function peak_cash!(s::SC, ai::AssetInstance, ats::DateTime)
-    @debug "Updating peak cash tracking" asset=ai timestamp=ats
+function peak_cash!(s::SC, ii::InstrumentInstance, ats::DateTime)
+    @debug "Updating peak cash tracking" asset=ii timestamp=ats
     
     try
         # Get current cash/equity value
-        current_equity = get_current_equity(s, ai)
+        current_equity = get_current_equity(s, ii)
         
         # Initialize peak cash tracking
         if !haskey(s.attrs, :peak_cash)
-            s[:peak_cash] = Dict{AssetInstance, Dict{Symbol, Any}}()
+            s[:peak_cash] = Dict{InstrumentInstance, Dict{Symbol, Any}}()
         end
         
-        if !haskey(s[:peak_cash], ai)
-            s[:peak_cash][ai] = Dict{Symbol, Any}(
+        if !haskey(s[:peak_cash], ii)
+            s[:peak_cash][ii] = Dict{Symbol, Any}(
                 :peak_value => current_equity,
                 :peak_time => ats,
                 :current_value => current_equity,
@@ -391,7 +392,7 @@ function peak_cash!(s::SC, ai::AssetInstance, ats::DateTime)
             )
         end
         
-        peak_data = s[:peak_cash][ai]
+        peak_data = s[:peak_cash][ii]
         peak_data[:current_value] = current_equity
         peak_data[:last_updated] = ats
         
@@ -399,11 +400,11 @@ function peak_cash!(s::SC, ai::AssetInstance, ats::DateTime)
         if current_equity > peak_data[:peak_value]
             peak_data[:peak_value] = current_equity
             peak_data[:peak_time] = ats
-            @debug "New peak cash recorded" asset=ai peak_value=current_equity
+            @debug "New peak cash recorded" asset=ii peak_value=current_equity
         end
         
     catch e
-        @error "Failed to update peak cash" asset=ai error=e
+        @error "Failed to update peak cash" asset=ii error=e
     end
     
     nothing
@@ -448,8 +449,8 @@ function peak_cash!(s::SC, ats::DateTime)
         
         for asset_str in assets
             try
-                ai = AssetInstance(asset_str, exchange)
-                peak_cash!(s, ai, ats)
+                ii = InstrumentInstance(asset_str, exchange)
+                peak_cash!(s, ii, ats)
             catch e
                 @error "Failed to update peak cash for asset" asset=asset_str error=e
             end
@@ -463,15 +464,15 @@ function peak_cash!(s::SC, ats::DateTime)
 end
 
 """
-    get_current_equity(s::SC, ai::AssetInstance)
+    get_current_equity(s::SC, ii::InstrumentInstance)
 
 Get the current equity value for an asset.
 """
-function get_current_equity(s::SC, ai::AssetInstance)
+function get_current_equity(s::SC, ii::InstrumentInstance)
     try
         # This would integrate with Planar's balance tracking
         # For now, return a mock value based on PnL
-        current_pnl = get(get(s.attrs, :performance_metrics, Dict()), ai, Dict())[:total_pnl]
+        current_pnl = get(get(s.attrs, :performance_metrics, Dict()), ii, Dict())[:total_pnl]
         base_equity = 10000.0  # Mock base equity
         return base_equity + current_pnl
     catch
@@ -492,8 +493,8 @@ function calculate_total_strategy_equity(s::SC, ats::DateTime)
     
     for asset_str in assets
         try
-            ai = AssetInstance(asset_str, exchange)
-            asset_equity = get_current_equity(s, ai)
+            ii = InstrumentInstance(asset_str, exchange)
+            asset_equity = get_current_equity(s, ii)
             total_equity += asset_equity
         catch e
             @error "Failed to get equity for asset" asset=asset_str error=e
@@ -504,12 +505,12 @@ function calculate_total_strategy_equity(s::SC, ats::DateTime)
 end
 
 """
-    calculate_drawdown(s::SC, ai::AssetInstance)
+    calculate_drawdown(s::SC, ii::InstrumentInstance)
 
 Calculate the current drawdown for an asset.
 """
-function calculate_drawdown(s::SC, ai::AssetInstance)
-    peak_data = get(get(s.attrs, :peak_cash, Dict()), ai, nothing)
+function calculate_drawdown(s::SC, ii::InstrumentInstance)
+    peak_data = get(get(s.attrs, :peak_cash, Dict()), ii, nothing)
     
     if isnothing(peak_data)
         return 0.0
@@ -527,16 +528,16 @@ function calculate_drawdown(s::SC, ai::AssetInstance)
 end
 
 """
-    update_drawdown_metrics!(s::SC, ai::AssetInstance, ats::DateTime)
+    update_drawdown_metrics!(s::SC, ii::InstrumentInstance, ats::DateTime)
 
 Update drawdown metrics for an asset.
 """
-function update_drawdown_metrics!(s::SC, ai::AssetInstance, ats::DateTime)
-    current_drawdown = calculate_drawdown(s, ai)
+function update_drawdown_metrics!(s::SC, ii::InstrumentInstance, ats::DateTime)
+    current_drawdown = calculate_drawdown(s, ii)
     
     # Update performance metrics with current drawdown
-    if haskey(s.attrs, :performance_metrics) && haskey(s[:performance_metrics], ai)
-        metrics = s[:performance_metrics][ai]
+    if haskey(s.attrs, :performance_metrics) && haskey(s[:performance_metrics], ii)
+        metrics = s[:performance_metrics][ii]
         
         # Update max drawdown if current is larger
         if current_drawdown > get(metrics, :max_drawdown, 0.0)
@@ -585,8 +586,8 @@ function update_strategy_pnl!(s::SC, ats::DateTime)
         
         for asset_str in assets
             try
-                ai = AssetInstance(asset_str, exchange)
-                asset_metrics = get(get(s.attrs, :performance_metrics, Dict()), ai, Dict())
+                ii = InstrumentInstance(asset_str, exchange)
+                asset_metrics = get(get(s.attrs, :performance_metrics, Dict()), ii, Dict())
                 
                 total_pnl += get(asset_metrics, :total_pnl, 0.0)
                 total_trades += get(asset_metrics, :total_trades, 0)
@@ -618,16 +619,16 @@ function update_strategy_pnl!(s::SC, ats::DateTime)
 end
 
 """
-    get_pnl_summary(s::SC, ai::AssetInstance)
+    get_pnl_summary(s::SC, ii::InstrumentInstance)
 
 Get a summary of PnL metrics for an asset.
 """
-function get_pnl_summary(s::SC, ai::AssetInstance)
-    metrics = get(get(s.attrs, :performance_metrics, Dict()), ai, Dict())
-    peak_data = get(get(s.attrs, :peak_cash, Dict()), ai, Dict())
+function get_pnl_summary(s::SC, ii::InstrumentInstance)
+    metrics = get(get(s.attrs, :performance_metrics, Dict()), ii, Dict())
+    peak_data = get(get(s.attrs, :peak_cash, Dict()), ii, Dict())
     
     return Dict{Symbol, Any}(
-        :asset => ai,
+        :asset => ii,
         :total_pnl => get(metrics, :total_pnl, 0.0),
         :realized_pnl => get(metrics, :realized_pnl, 0.0),
         :unrealized_pnl => get(metrics, :unrealized_pnl, 0.0),
@@ -654,15 +655,15 @@ function get_strategy_pnl_summary(s::SC)
     strategy_peak = get(s.attrs, :strategy_peak_cash, Dict())
     
     # Get individual asset summaries
-    asset_summaries = Dict{AssetInstance, Dict{Symbol, Any}}()
+    asset_summaries = Dict{InstrumentInstance, Dict{Symbol, Any}}()
     
     assets = get_current_assets()
     exchange = WATCHER_EXC[]
     
     for asset_str in assets
         try
-            ai = AssetInstance(asset_str, exchange)
-            asset_summaries[ai] = get_pnl_summary(s, ai)
+            ii = InstrumentInstance(asset_str, exchange)
+            asset_summaries[ii] = get_pnl_summary(s, ii)
         catch e
             @error "Failed to get PnL summary for asset" asset=asset_str error=e
         end

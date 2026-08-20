@@ -1,6 +1,7 @@
 # Tests for core StrategyFramework functions
 using Test
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 using Statistics
 
 # Simple standalone tests for key functions that don't require complex mocking

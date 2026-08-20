@@ -14,10 +14,10 @@ include("common.jl")
 
 # function __init__() end
 function _reset_pos!(s, def_lev=get!(s.attrs, :def_lev, 1.0); synced=true)
-    @sync for ai in s.universe
+    @sync for ii in s.universe
         @async begin
-            call!(s, ai, def_lev, UpdateLeverage(); pos=Long(), synced)
-            call!(s, ai, def_lev, UpdateLeverage(); pos=Short(), synced)
+            call!(s, ii, def_lev, UpdateLeverage(); pos=Long(), synced)
+            call!(s, ii, def_lev, UpdateLeverage(); pos=Short(), synced)
         end
     end
 end
@@ -35,8 +35,8 @@ call!(s::S, ::ResetStrategy) = begin
     _reset_pos!(s)
     # Generate stub funding rate data, only in sim mode
     if S <: Strategy{Sim}
-        for ai in s.universe
-            stub!(ai, Val(:funding))
+        for ii in s.universe
+            stub!(ii, Val(:funding))
         end
     else
     end
@@ -69,13 +69,13 @@ end
 
 function call!(s::T, ts::DateTime, _) where {T<:SC}
     ats = available(tf"1m", ts)
-    foreach(s.universe) do ai
+    foreach(s.universe) do ii
         pos = nothing
         lev = nothing
-        if isbuy(s, ai, ats, pos)
-            buy!(s, ai, ats, ts; lev)
-        elseif issell(s, ai, ats, pos)
-            sell!(s, ai, ats, ts; lev)
+        if isbuy(s, ii, ats, pos)
+            buy!(s, ii, ats, ts; lev)
+        elseif issell(s, ii, ats, pos)
+            sell!(s, ii, ats, ts; lev)
         end
     end
 end
@@ -95,8 +95,8 @@ function call!(s::Union{<:S,Type{<:S}}, ::StrategyMarkets) where {S<:SC{Exchange
     @something ASSETS[] (ASSETS[] = if_asset_available(s))
 end
 
-function longorshort(s::SC, ai, ats)
-    closepair(s, ai, ats)
+function longorshort(s::SC, ii, ats)
+    closepair(s, ii, ats)
     if _thisclose(s) / _prevclose(s) > s.attrs[:buydiff]
         Long()
     else
@@ -104,90 +104,90 @@ function longorshort(s::SC, ai, ats)
     end
 end
 
-function isbuy(s, ai, ats, pos)
-    closepair(s, ai, ats)
+function isbuy(s, ii, ats, pos)
+    closepair(s, ii, ats)
     isnothing(_thisclose(s)) && return false
     _thisclose(s) / _prevclose(s) > s.attrs[:buydiff]
 end
 
-function issell(s, ai, ats, pos)
-    closepair(s, ai, ats)
+function issell(s, ii, ats, pos)
+    closepair(s, ii, ats)
     isnothing(_thisclose(s)) && return false
     _prevclose(s) / _thisclose(s) > s.attrs[:selldiff]
 end
 
 _levk(s, ::Long) = s.attrs[:long_k]
 _levk(s, ::Short) = s.attrs[:short_k]
-function update_leverage!(s, ai, pos, ats)
+function update_leverage!(s, ii, pos, ats)
     s.attrs[:per_order_leverage] || return nothing
-    lev = let r = highat(ai, ats) / lowat(ai, ats)
+    lev = let r = highat(ii, ats) / lowat(ii, ats)
         diff = abs(1.0 - r)
         clamp(_levk(s, pos) / diff, 1.0, 100.0)
     end
-    call!(s, ai, lev, UpdateLeverage(); pos)
+    call!(s, ii, lev, UpdateLeverage(); pos)
 end
 
-function buy!(s, ai, ats, ts; lev)
-    call!(s, ai, CancelOrders(); t=Sell)
-    @deassert ai.asset.qc == nameof(s.cash)
-    p = @something inst.position(ai) inst.position(ai, Long())
+function buy!(s, ii, ats, ts; lev)
+    call!(s, ii, CancelOrders(); t=Sell)
+    @deassert ii.asset.qc == nameof(s.cash)
+    p = @something inst.position(ii) inst.position(ii, Long())
     ok = false
     if inst.islong(p)
         c = st.freecash(s)
-        if c > ai.limits.cost.min
+        if c > ii.limits.cost.min
             order_p = Long()
-            c = max(ai.limits.cost.min, c / 10.0)
-            price = closeat(ai.ohlcv, ats)
+            c = max(ii.limits.cost.min, c / 10.0)
+            price = closeat(ii.ohlcv, ats)
             amount = c / price
             ok = true
         end
     else
-        amount = abs(inst.freecash(ai, Short()))
+        amount = abs(inst.freecash(ii, Short()))
         if amount > 0.0
             order_p = Short()
             ok = true
         end
     end
     if ok
-        update_leverage!(s, ai, order_p, ats)
+        update_leverage!(s, ii, order_p, ats)
         ot, otsym = select_ordertype(s, Buy, order_p)
-        kwargs = select_orderkwargs(otsym, Buy, ai, ats)
-        t = call!(s, ai, ot; amount, date=ts, kwargs...)
+        kwargs = select_orderkwargs(otsym, Buy, ii, ats)
+        t = call!(s, ii, ot; amount, date=ts, kwargs...)
         if !isnothing(t) && order_p == Short()
             ot, otsym = select_ordertype(s, Buy, Long())
-            kwargs = select_orderkwargs(otsym, Buy, ai, ats)
-            t = call!(s, ai, ot; amount, date=ts, kwargs...)
+            kwargs = select_orderkwargs(otsym, Buy, ii, ats)
+            t = call!(s, ii, ot; amount, date=ts, kwargs...)
         end
     end
 end
 
-function sell!(s, ai, ats, ts; lev)
-    call!(s, ai, CancelOrders(); t=Buy)
-    p = @something inst.position(ai) inst.position(ai, Short())
-    price = closeat(ai.ohlcv, ats)
+function sell!(s, ii, ats, ts; lev)
+    call!(s, ii, CancelOrders(); t=Buy)
+    p = @something inst.position(ii) inst.position(ii, Short())
+    price = closeat(ii.ohlcv, ats)
     ok = false
     if inst.isshort(p)
         amount = st.freecash(s) / 10.0 / price
-        if amount > ai.limits.amount.min
+        if amount > ii.limits.amount.min
             order_p = Short()
             ok = true
         end
     else
-        amount = inst.freecash(ai, Long())
+        amount = inst.freecash(ii, Long())
         if amount > 0.0
             order_p = Long()
             ok = true
         end
     end
     if ok
-        update_leverage!(s, ai, order_p, ats)
+        update_leverage!(s, ii, order_p, ats)
         ot, otsym = select_ordertype(s, Sell, order_p)
-        kwargs = select_orderkwargs(otsym, Sell, ai, ats)
-        t = call!(s, ai, ot; amount, date=ts, kwargs...)
+        kwargs = select_orderkwargs(otsym, Sell, ii, ats)
+        t = call!(s, ii, ot; amount, date=ts, kwargs...)
         if !isnothing(t) && order_p == Long()
             ot, otsym = select_ordertype(s, Sell, Short())
-            kwargs = select_orderkwargs(otsym, Sell, ai, ats)
-            t = call!(s, ai, ot; amount, date=ts, kwargs...)
+            kwargs = select_orderkwargs(otsym, Sell, ii, ats)
+            t = call!(s, ii, ot; amount, date=ts, kwargs...)
         end
     end
 end

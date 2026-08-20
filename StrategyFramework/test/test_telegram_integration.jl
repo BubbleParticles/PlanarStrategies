@@ -1,12 +1,13 @@
 # Tests for Telegram integration functions
 using Test
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 using Statistics
 
 # Mock types for testing
-abstract type MockAssetInstance end
+abstract type MockInstrumentInstance end
 
-struct MockBTCUSDT <: MockAssetInstance
+struct MockBTCUSDT <: MockInstrumentInstance
     symbol::String
     MockBTCUSDT() = new("BTC/USDT")
 end
@@ -230,7 +231,7 @@ end
         s.telegram_config.bot_token = "valid_token"
         s.telegram_config.chat_id = "valid_chat"
         
-        ai = MockBTCUSDT()
+        ii = MockBTCUSDT()
         
         # Mock trade data
         trade_data = Dict(
@@ -242,7 +243,7 @@ end
         )
         
         # Mock the send_trade_notification function
-        function send_trade_notification(s::MockTelegramStrategy, ai::MockAssetInstance, trade_data::Dict)
+        function send_trade_notification(s::MockTelegramStrategy, ii::MockInstrumentInstance, trade_data::Dict)
             if !s.notification_settings[:trades]
                 return false
             end
@@ -252,7 +253,7 @@ end
             message = """
             $side_emoji **Trade Executed**
             
-            **Asset:** $(ai.symbol)
+            **Instrument:** $(ii.symbol)
             **Side:** $(trade_data["side"])
             **Amount:** $(trade_data["amount"])
             **Price:** \$$(trade_data["price"])
@@ -265,7 +266,7 @@ end
         end
         
         # Test trade notification
-        result = send_trade_notification(s, ai, trade_data)
+        result = send_trade_notification(s, ii, trade_data)
         @test result == true
         @test length(s.message_history) == 1
         @test contains(s.message_history[1]["message"], "Trade Executed")
@@ -276,14 +277,14 @@ end
         
         # Test with disabled trade notifications
         s.notification_settings[:trades] = false
-        result_disabled = send_trade_notification(s, ai, trade_data)
+        result_disabled = send_trade_notification(s, ii, trade_data)
         @test result_disabled == false
         @test length(s.message_history) == 1  # No new message
         
         # Test sell trade
         s.notification_settings[:trades] = true
         sell_trade_data = merge(trade_data, Dict("side" => "SELL"))
-        result_sell = send_trade_notification(s, ai, sell_trade_data)
+        result_sell = send_trade_notification(s, ii, sell_trade_data)
         @test result_sell == true
         @test contains(s.message_history[end]["message"], "🔴")
         @test contains(s.message_history[end]["message"], "SELL")

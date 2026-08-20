@@ -40,24 +40,24 @@ function setsignals!(s)
     inittrends!(s, keys(sigdefs.defs))
 end
 
-function is_strong_uptrend(s::SC, ai, ats)
+function is_strong_uptrend(s::SC, ii, ats)
     # Get all trend indicators
-    sma_fast = signal_value(s, ai, :sma_fast, ats)
-    sma_medium = signal_value(s, ai, :sma_medium, ats)
-    sma_slow = signal_value(s, ai, :sma_slow, ats)
-    ema_trend = signal_value(s, ai, :ema_trend, ats)
-    adx = signal_value(s, ai, :adx, ats)
-    di_plus = signal_value(s, ai, :di_plus, ats)
-    di_minus = signal_value(s, ai, :di_minus, ats)
-    trend_15m = signal_value(s, ai, :trend_15m, ats)
-    trend_1h = signal_value(s, ai, :trend_1h, ats)
+    sma_fast = signal_value(s, ii, :sma_fast, ats)
+    sma_medium = signal_value(s, ii, :sma_medium, ats)
+    sma_slow = signal_value(s, ii, :sma_slow, ats)
+    ema_trend = signal_value(s, ii, :ema_trend, ats)
+    adx = signal_value(s, ii, :adx, ats)
+    di_plus = signal_value(s, ii, :di_plus, ats)
+    di_minus = signal_value(s, ii, :di_minus, ats)
+    trend_15m = signal_value(s, ii, :trend_15m, ats)
+    trend_1h = signal_value(s, ii, :trend_1h, ats)
     
     # Validate critical indicators
     if any(isnothing, [sma_fast, sma_medium, sma_slow, adx])
         return false
     end
     
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     current_price = data.close[idx]
     
@@ -112,24 +112,24 @@ function is_strong_uptrend(s::SC, ai, ats)
     return total_checks > 0 && (confirmations / total_checks) >= 0.7
 end
 
-function is_strong_downtrend(s::SC, ai, ats)
+function is_strong_downtrend(s::SC, ii, ats)
     # Get all trend indicators
-    sma_fast = signal_value(s, ai, :sma_fast, ats)
-    sma_medium = signal_value(s, ai, :sma_medium, ats)
-    sma_slow = signal_value(s, ai, :sma_slow, ats)
-    ema_trend = signal_value(s, ai, :ema_trend, ats)
-    adx = signal_value(s, ai, :adx, ats)
-    di_plus = signal_value(s, ai, :di_plus, ats)
-    di_minus = signal_value(s, ai, :di_minus, ats)
-    trend_15m = signal_value(s, ai, :trend_15m, ats)
-    trend_1h = signal_value(s, ai, :trend_1h, ats)
+    sma_fast = signal_value(s, ii, :sma_fast, ats)
+    sma_medium = signal_value(s, ii, :sma_medium, ats)
+    sma_slow = signal_value(s, ii, :sma_slow, ats)
+    ema_trend = signal_value(s, ii, :ema_trend, ats)
+    adx = signal_value(s, ii, :adx, ats)
+    di_plus = signal_value(s, ii, :di_plus, ats)
+    di_minus = signal_value(s, ii, :di_minus, ats)
+    trend_15m = signal_value(s, ii, :trend_15m, ats)
+    trend_1h = signal_value(s, ii, :trend_1h, ats)
     
     # Validate critical indicators
     if any(isnothing, [sma_fast, sma_medium, sma_slow, adx])
         return false
     end
     
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     current_price = data.close[idx]
     
@@ -184,20 +184,20 @@ function is_strong_downtrend(s::SC, ai, ats)
     return total_checks > 0 && (confirmations / total_checks) >= 0.7
 end
 
-function isbuy(s::SC, ai, ats)
+function isbuy(s::SC, ii, ats)
     # Only buy in strong uptrends
-    if !is_strong_uptrend(s, ai, ats)
+    if !is_strong_uptrend(s, ii, ats)
         return false
     end
     
     # Get momentum and entry timing indicators
-    macd_line = signal_value(s, ai, :macd_line, ats)
-    macd_signal = signal_value(s, ai, :macd_signal, ats)
-    roc = signal_value(s, ai, :roc, ats)
-    volume_ma = signal_value(s, ai, :volume_ma, ats)
-    atr = signal_value(s, ai, :atr, ats)
+    macd_line = signal_value(s, ii, :macd_line, ats)
+    macd_signal = signal_value(s, ii, :macd_signal, ats)
+    roc = signal_value(s, ii, :roc, ats)
+    volume_ma = signal_value(s, ii, :volume_ma, ats)
+    atr = signal_value(s, ii, :atr, ats)
     
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     current_volume = data.volume[idx]
     
@@ -230,7 +230,7 @@ function isbuy(s::SC, ai, ats)
     end
     
     # 4. Pullback entry (buy on minor pullbacks in strong trends)
-    sma_fast = signal_value(s, ai, :sma_fast, ats)
+    sma_fast = signal_value(s, ii, :sma_fast, ats)
     if !isnothing(sma_fast) && idx >= 3
         total_entry_checks += 1
         current_price = data.close[idx]
@@ -246,18 +246,18 @@ function isbuy(s::SC, ai, ats)
     return total_entry_checks > 0 && (entry_signals / total_entry_checks) >= 0.5
 end
 
-function issell(s::SC, ai, ats)
+function issell(s::SC, ii, ats)
     # Sell if strong downtrend develops
-    if is_strong_downtrend(s, ai, ats)
+    if is_strong_downtrend(s, ii, ats)
         return true
     end
     
     # Or sell if uptrend weakens significantly
-    if !is_strong_uptrend(s, ai, ats)
+    if !is_strong_uptrend(s, ii, ats)
         # Check if trend is just consolidating or actually reversing
-        adx = signal_value(s, ai, :adx, ats)
-        sma_fast = signal_value(s, ai, :sma_fast, ats)
-        sma_medium = signal_value(s, ai, :sma_medium, ats)
+        adx = signal_value(s, ii, :adx, ats)
+        sma_fast = signal_value(s, ii, :sma_fast, ats)
+        sma_medium = signal_value(s, ii, :sma_medium, ats)
         
         if !isnothing(adx) && !isnothing(sma_fast) && !isnothing(sma_medium)
             # If ADX is falling and fast MA crosses below medium MA, exit
@@ -268,9 +268,9 @@ function issell(s::SC, ai, ats)
     end
     
     # Additional exit conditions
-    macd_line = signal_value(s, ai, :macd_line, ats)
-    macd_signal = signal_value(s, ai, :macd_signal, ats)
-    roc = signal_value(s, ai, :roc, ats)
+    macd_line = signal_value(s, ii, :macd_line, ats)
+    macd_signal = signal_value(s, ii, :macd_signal, ats)
+    roc = signal_value(s, ii, :roc, ats)
     
     # Exit on momentum divergence
     if !isnothing(macd_line) && !isnothing(macd_signal)
@@ -288,17 +288,17 @@ function issell(s::SC, ai, ats)
 end
 
 # Alternative: Breakout trend following
-function isbuy_breakout(s::SC, ai, ats)
+function isbuy_breakout(s::SC, ii, ats)
     # Look for breakouts from consolidation periods
-    adx = signal_value(s, ai, :adx, ats)
-    atr = signal_value(s, ai, :atr, ats)
-    volume_ma = signal_value(s, ai, :volume_ma, ats)
+    adx = signal_value(s, ii, :adx, ats)
+    atr = signal_value(s, ii, :atr, ats)
+    volume_ma = signal_value(s, ii, :volume_ma, ats)
     
     if any(isnothing, [adx, atr, volume_ma])
         return false
     end
     
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     
     if idx < 20
@@ -310,9 +310,9 @@ function isbuy_breakout(s::SC, ai, ats)
     
     # Look for consolidation followed by breakout
     # 1. Recent low ADX (consolidation)
-    recent_adx_low = minimum([signal_value(s, ai, :adx, data.timestamp[i]) 
+    recent_adx_low = minimum([signal_value(s, ii, :adx, data.timestamp[i]) 
                              for i in (idx-10):idx 
-                             if !isnothing(signal_value(s, ai, :adx, data.timestamp[i]))])
+                             if !isnothing(signal_value(s, ii, :adx, data.timestamp[i]))])
     
     # 2. Current ADX rising (trend starting)
     if recent_adx_low > 15 || adx < recent_adx_low * 1.2
@@ -331,9 +331,9 @@ function isbuy_breakout(s::SC, ai, ats)
     end
     
     # 5. Volatility expansion
-    recent_atr = [signal_value(s, ai, :atr, data.timestamp[i]) 
+    recent_atr = [signal_value(s, ii, :atr, data.timestamp[i]) 
                   for i in (idx-5):idx 
-                  if !isnothing(signal_value(s, ai, :atr, data.timestamp[i]))]
+                  if !isnothing(signal_value(s, ii, :atr, data.timestamp[i]))]
     
     if length(recent_atr) < 3
         return false
@@ -348,10 +348,10 @@ function isbuy_breakout(s::SC, ai, ats)
 end
 
 # Trend strength measurement
-function get_trend_strength(s::SC, ai, ats)
-    adx = signal_value(s, ai, :adx, ats)
-    di_plus = signal_value(s, ai, :di_plus, ats)
-    di_minus = signal_value(s, ai, :di_minus, ats)
+function get_trend_strength(s::SC, ii, ats)
+    adx = signal_value(s, ii, :adx, ats)
+    di_plus = signal_value(s, ii, :di_plus, ats)
+    di_minus = signal_value(s, ii, :di_minus, ats)
     
     if any(isnothing, [adx, di_plus, di_minus])
         return 0.0

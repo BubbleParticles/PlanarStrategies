@@ -1,6 +1,7 @@
 # Signal generation interface for StrategyFramework
 
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 using Planar
 
 """
@@ -8,11 +9,11 @@ using Planar
 
 Abstract type for signal generation implementations.
 All signal generators must implement the required methods:
-- `generate_buy_signal(sg, s, ai, ats)`
-- `generate_sell_signal(sg, s, ai, ats)`
+- `generate_buy_signal(sg, s, ii, ats)`
+- `generate_sell_signal(sg, s, ii, ats)`
 
 Optional methods with default implementations:
-- `should_trade(sg, s, ai, ats)` - returns true by default
+- `should_trade(sg, s, ii, ats)` - returns true by default
 - `get_signal_lifetime(sg)` - returns 0.2 by default
 """
 abstract type SignalGenerator end
@@ -34,7 +35,7 @@ end
 
 # Required methods for signal generators
 """
-    generate_buy_signal(sg::SignalGenerator, s::SC, ai, ats)
+    generate_buy_signal(sg::SignalGenerator, s::SC, ii, ats)
 
 Generate a buy signal for the given asset and timestamp.
 Must be implemented by all signal generators.
@@ -42,18 +43,18 @@ Must be implemented by all signal generators.
 # Arguments
 - `sg::SignalGenerator`: The signal generator instance
 - `s::SC`: The strategy instance
-- `ai`: Asset instance
+- `ii`: Instrument instance
 - `ats`: Available timestamp
 
 # Returns
 - `Bool`: true if a buy signal is generated, false otherwise
 """
-function generate_buy_signal(sg::SignalGenerator, s::SC, ai, ats)
+function generate_buy_signal(sg::SignalGenerator, s::SC, ii, ats)
     error("generate_buy_signal must be implemented by $(typeof(sg))")
 end
 
 """
-    generate_sell_signal(sg::SignalGenerator, s::SC, ai, ats)
+    generate_sell_signal(sg::SignalGenerator, s::SC, ii, ats)
 
 Generate a sell signal for the given asset and timestamp.
 Must be implemented by all signal generators.
@@ -61,19 +62,19 @@ Must be implemented by all signal generators.
 # Arguments
 - `sg::SignalGenerator`: The signal generator instance
 - `s::SC`: The strategy instance
-- `ai`: Asset instance
+- `ii`: Instrument instance
 - `ats`: Available timestamp
 
 # Returns
 - `Bool`: true if a sell signal is generated, false otherwise
 """
-function generate_sell_signal(sg::SignalGenerator, s::SC, ai, ats)
+function generate_sell_signal(sg::SignalGenerator, s::SC, ii, ats)
     error("generate_sell_signal must be implemented by $(typeof(sg))")
 end
 
 # Optional methods with default implementations
 """
-    should_trade(sg::SignalGenerator, s::SC, ai, ats)
+    should_trade(sg::SignalGenerator, s::SC, ii, ats)
 
 Determine if trading should be allowed for the given asset and timestamp.
 Default implementation always returns true.
@@ -81,13 +82,13 @@ Default implementation always returns true.
 # Arguments
 - `sg::SignalGenerator`: The signal generator instance
 - `s::SC`: The strategy instance
-- `ai`: Asset instance
+- `ii`: Instrument instance
 - `ats`: Available timestamp
 
 # Returns
 - `Bool`: true if trading is allowed, false otherwise
 """
-function should_trade(sg::SignalGenerator, s::SC, ai, ats)
+function should_trade(sg::SignalGenerator, s::SC, ii, ats)
     true  # Default: always allow trading
 end
 

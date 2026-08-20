@@ -29,28 +29,28 @@ the next tick.
 Run with `examples/tick_backtest.jl`.
 """
 function ping!(s::SC, ctx::TickContext, tick::TradeTick)
-    ai = tick.asset
+    ii = tick.asset
     price = tick.price
     # keep at most one resting order per side
-    (isempty(orders(s, ai, Buy)) && isempty(orders(s, ai, Sell))) || return nothing
+    (isempty(orders(s, ii, Buy)) && isempty(orders(s, ii, Sell))) || return nothing
     # buy leg — size by free cash, quote below the last trade
-    if freecash(s) > price * ai.limits.amount.min
+    if freecash(s) > price * ii.limits.amount.min
         amt = clamp(
             QUOTE_FRACTION * freecash(s) / price,
-            ai.limits.amount.min,
-            ai.limits.amount.max,
+            ii.limits.amount.min,
+            ii.limits.amount.max,
         )
         call!(
-            s, ai, LimitOrder{Buy};
+            s, ii, LimitOrder{Buy};
             amount=amt, price=price * (1 - HALF_SPREAD), date=tick.timestamp,
         )
     end
     # sell leg — only what is actually held (spot: no shorting)
-    held = float(ai)
+    held = float(ii)
     if held > 0
         call!(
-            s, ai, LimitOrder{Sell};
-            amount=min(held, ai.limits.amount.max),
+            s, ii, LimitOrder{Sell};
+            amount=min(held, ii.limits.amount.max),
             price=price * (1 + HALF_SPREAD), date=tick.timestamp,
         )
     end

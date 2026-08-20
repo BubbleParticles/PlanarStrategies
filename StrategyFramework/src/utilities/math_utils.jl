@@ -2,7 +2,8 @@
 # Provides spread calculations, ROC calculations, volatility measurements, and timeframe conversions
 
 using Statistics
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 
 """
     getincr(price::Real, exchange_info)

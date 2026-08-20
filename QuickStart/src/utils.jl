@@ -109,38 +109,38 @@ liveasync(f::Function, ::Planar.SimStrategy) = f()
 livelock(l::ReentrantLock, s::Planar.RTStrategy) = lock(s)
 livelock(l::ReentrantLock, s::Planar.SimStrategy) = nothing
 
-function closeposition!(s::SC, ai, ts; pside=posside(ai))
+function closeposition!(s::SC, ii, ts; pside=posside(ii))
     closed = true
-    if !isnothing(pside) && isopen(ai, pside)
-        closed = call!(s, ai, pside, ts, PositionClose(); fees=simfees(s, GTCOrder))
-        call!(s, ai, s.def_lev, UpdateLeverage(); pos=pside, synced=true)
+    if !isnothing(pside) && isopen(ii, pside)
+        closed = call!(s, ii, pside, ts, PositionClose(); fees=simfees(s, GTCOrder))
+        call!(s, ii, s.def_lev, UpdateLeverage(); pos=pside, synced=true)
     end
     return closed
 end
 
-function handle_fail(s::SC, ai, ats, ts; kwargs=(;), pside, ot, amount)
+function handle_fail(s::SC, ii, ats, ts; kwargs=(;), pside, ot, amount)
     this_kwargs = withoutkws(:price; kwargs=pairs(kwargs))
     if !(ot <: ReduceOrder)
-        @lerror 1 "$(id(s)): only handle fails for reduce orders" ai ot
+        @lerror 1 "$(id(s)): only handle fails for reduce orders" ii ot
         return nothing
     end
     this_ot, _ = select_ordertype(s, orderside(ot), posside(ot); t=:gtc)
     liveasync(s) do
-        t = call!(s, ai, this_ot; amount, date=ts, fees=simfees(s, this_ot), this_kwargs...)
+        t = call!(s, ii, this_ot; amount, date=ts, fees=simfees(s, this_ot), this_kwargs...)
         if isnothing(t)
-            @lerror 1 "$(id(s)): failed to reduce position attempting last full close" ai
-            closeposition!(s, ai, ts; pside)
-            if isopen(ai, pside)
-                @lerror 1 "$(id(s)): last position close attempt failed" pside ai ts
+            @lerror 1 "$(id(s)): failed to reduce position attempting last full close" ii
+            closeposition!(s, ii, ts; pside)
+            if isopen(ii, pside)
+                @lerror 1 "$(id(s)): last position close attempt failed" pside ii ts
             end
         end
     end
 end
 
-function cancelorders!(s::SC, ai; side=BuyOrSell)
+function cancelorders!(s::SC, ii; side=BuyOrSell)
     tries = 1
     while tries < 3
-        if call!(s, ai, CancelOrders(); t=side)
+        if call!(s, ii, CancelOrders(); t=side)
             return true
         end
         livesleep(s, 1)
@@ -149,29 +149,29 @@ function cancelorders!(s::SC, ai; side=BuyOrSell)
     return false
 end
 
-function check_posside(s::Planar.RTStrategy, ai, ats; ot, t)
+function check_posside(s::Planar.RTStrategy, ii, ats; ot, t)
     if t isa Trade
         check_1 = posside(t.order) != posside(ot)
         check_2 = isshort(t) && isshort(ot)
         check_3 = islong(t) && islong(ot)
         if check_1 || !(check_2 || check_3)
-            @lerror 1 "$(id(s)): trade order side mismatch" ai ats t.order ot check_1 check_2 check_3
+            @lerror 1 "$(id(s)): trade order side mismatch" ii ats t.order ot check_1 check_2 check_3
         end
     elseif ismissing(t)
-        for o in values(s, ai, orderside(ot))
+        for o in values(s, ii, orderside(ot))
             if o.date >= ats
                 check_1 = posside(o) != posside(ot)
                 check_2 = isshort(o) && isshort(ot)
                 check_3 = islong(o) && islong(ot)
                 if check_1 || !(check_2 || check_3)
-                    @lerror 1 "$(id(s)): order side mismatch" ai ats o ot check_1 check_2 check_3
+                    @lerror 1 "$(id(s)): order side mismatch" ii ats o ot check_1 check_2 check_3
                 end
             end
         end
     end
 end
 
-check_posside(s::Planar.SimStrategy, ai, ats; ot, t) = nothing
+check_posside(s::Planar.SimStrategy, ii, ats; ot, t) = nothing
 
 function with_profiling(f::Function, s::SC, ts)
     if hasproperty(Main, :Profile)

@@ -19,14 +19,14 @@ function call!(_::SC, ::WarmupPeriod)
 end
 function call!(s::SC, ts::DateTime, _)
     ats = available(s.timeframe, ts)
-    foreach(s.universe) do ai
-        df = ohlcv(ai)
+    foreach(s.universe) do ii
+        df = ohlcv(ii)
         idx = dateindex(df, ats)
         if idx > 15
             ma7d = mean(@view df.close[(idx - 7):idx])
             ma15d = mean(@view df.close[(idx - 15):idx])
             side = ifelse(ma7d > ma15d, Buy, Sell)
-            call!(s, ai, MarketOrder{side}; date=ts, amount=0.001)
+            call!(s, ii, MarketOrder{side}; date=ts, amount=0.001)
         end
     end
 end

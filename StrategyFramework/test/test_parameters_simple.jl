@@ -1,6 +1,7 @@
 # Simplified parameter management tests without Planar dependency
 using Test
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 
 # Simplified parameter spec for testing
 @kwdef struct SimpleParameterSpec{T}

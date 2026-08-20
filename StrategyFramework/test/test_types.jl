@@ -1,9 +1,10 @@
 # Tests for core types and constants
 using Test
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 
 # Mock Planar types for testing
-struct MockAssetInstance
+struct MockInstrumentInstance
     symbol::String
 end
 
@@ -24,7 +25,7 @@ struct MockCircularBuffer
 end
 
 struct MockTrade
-    asset::MockAssetInstance
+    asset::MockInstrumentInstance
     side::Symbol
     amount::Float64
     price::Float64
@@ -99,22 +100,22 @@ include("../src/core/types.jl")
         @test tracker.uni_iter[2][] == DateTime(0)
         
         # Test adding data to tracker
-        ai = MockAssetInstance("BTC/USDT")
+        ii = MockInstrumentInstance("BTC/USDT")
         extrema = MockMovingExtrema(49000.0, 51000.0)
         wma = MockWMA(50000.0)
         
-        tracker.extremas[ai] = extrema
-        tracker.hl_trackers[ai] = (Ref(now()), wma)
-        tracker.backoff[ai] = now() - Hour(1)
+        tracker.extremas[ii] = extrema
+        tracker.hl_trackers[ii] = (Ref(now()), wma)
+        tracker.backoff[ii] = now() - Hour(1)
         
-        @test haskey(tracker.extremas, ai)
-        @test tracker.extremas[ai] == extrema
-        @test haskey(tracker.hl_trackers, ai)
-        @test tracker.hl_trackers[ai][2] == wma
-        @test haskey(tracker.backoff, ai)
+        @test haskey(tracker.extremas, ii)
+        @test tracker.extremas[ii] == extrema
+        @test haskey(tracker.hl_trackers, ii)
+        @test tracker.hl_trackers[ii][2] == wma
+        @test haskey(tracker.backoff, ii)
         
         # Test universe iterator
-        assets = [MockAssetInstance("BTC/USDT"), MockAssetInstance("ETH/USDT")]
+        assets = [MockInstrumentInstance("BTC/USDT"), MockInstrumentInstance("ETH/USDT")]
         timestamp = now()
         
         tracker.uni_iter = (assets, Ref(timestamp))
@@ -149,18 +150,18 @@ include("../src/core/types.jl")
         @test custom_metrics.winning_trades == 65
         
         # Test adding data to metrics
-        ai = MockAssetInstance("BTC/USDT")
+        ii = MockInstrumentInstance("BTC/USDT")
         buffer = MockCircularBuffer(100)
-        trade = MockTrade(ai, :buy, 0.1, 50000.0, now())
+        trade = MockTrade(ii, :buy, 0.1, 50000.0, now())
         
-        metrics.pnl_history[ai] = buffer
-        metrics.trade_history[ai] = [trade]
+        metrics.pnl_history[ii] = buffer
+        metrics.trade_history[ii] = [trade]
         
-        @test haskey(metrics.pnl_history, ai)
-        @test metrics.pnl_history[ai] == buffer
-        @test haskey(metrics.trade_history, ai)
-        @test length(metrics.trade_history[ai]) == 1
-        @test metrics.trade_history[ai][1] == trade
+        @test haskey(metrics.pnl_history, ii)
+        @test metrics.pnl_history[ii] == buffer
+        @test haskey(metrics.trade_history, ii)
+        @test length(metrics.trade_history[ii]) == 1
+        @test metrics.trade_history[ii][1] == trade
         
         # Test metrics calculations
         metrics.total_trades = 50
@@ -263,11 +264,11 @@ include("../src/core/types.jl")
         @test extreme_config.sync_history_limit == 1000000
         
         # Test PositionTracker with pre-populated data
-        ai1 = MockAssetInstance("BTC/USDT")
-        ai2 = MockAssetInstance("ETH/USDT")
+        ii1 = MockInstrumentInstance("BTC/USDT")
+        ii2 = MockInstrumentInstance("ETH/USDT")
         
-        extremas = Dict(ai1 => MockMovingExtrema(45000.0, 55000.0))
-        backoff = Dict(ai1 => now() - Hour(2), ai2 => now() - Minute(30))
+        extremas = Dict(ii1 => MockMovingExtrema(45000.0, 55000.0))
+        backoff = Dict(ii1 => now() - Hour(2), ii2 => now() - Minute(30))
         
         tracker = PositionTracker(
             extremas = extremas,
@@ -276,13 +277,13 @@ include("../src/core/types.jl")
         
         @test length(tracker.extremas) == 1
         @test length(tracker.backoff) == 2
-        @test haskey(tracker.extremas, ai1)
-        @test haskey(tracker.backoff, ai1)
-        @test haskey(tracker.backoff, ai2)
+        @test haskey(tracker.extremas, ii1)
+        @test haskey(tracker.backoff, ii1)
+        @test haskey(tracker.backoff, ii2)
         
         # Test PerformanceMetrics with pre-populated data
-        pnl_data = Dict(ai1 => MockCircularBuffer(50))
-        trade_data = Dict(ai1 => MockTrade[])
+        pnl_data = Dict(ii1 => MockCircularBuffer(50))
+        trade_data = Dict(ii1 => MockTrade[])
         
         metrics = PerformanceMetrics(
             pnl_history = pnl_data,
@@ -315,18 +316,18 @@ include("../src/core/types.jl")
         
         # Test DateTime operations with backoff
         tracker = PositionTracker()
-        ai = MockAssetInstance("BTC/USDT")
+        ii = MockInstrumentInstance("BTC/USDT")
         
         current_time = now()
-        tracker.backoff[ai] = current_time - config.trade_cooldown
+        tracker.backoff[ii] = current_time - config.trade_cooldown
         
         # Check if cooldown has expired
-        cooldown_expired = current_time >= tracker.backoff[ai] + config.trade_cooldown
+        cooldown_expired = current_time >= tracker.backoff[ii] + config.trade_cooldown
         @test cooldown_expired == true
         
         # Test with recent backoff
-        tracker.backoff[ai] = current_time - Second(30)  # 30 seconds ago
-        cooldown_expired = current_time >= tracker.backoff[ai] + config.trade_cooldown
+        tracker.backoff[ii] = current_time - Second(30)  # 30 seconds ago
+        cooldown_expired = current_time >= tracker.backoff[ii] + config.trade_cooldown
         @test cooldown_expired == false
     end
 end

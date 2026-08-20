@@ -28,14 +28,14 @@ function setsignals!(s)
     inittrends!(s, keys(sigdefs.defs))
 end
 
-function isbuy(s::SC, ai, ats)
+function isbuy(s::SC, ii, ats)
     # Get all required signals
-    trend_1h = signal_value(s, ai, :trend_1h, ats)
-    rsi_1h = signal_value(s, ai, :rsi_1h, ats)
-    sma_15m = signal_value(s, ai, :sma_15m, ats)
-    macd_15m = signal_value(s, ai, :macd_15m, ats)
-    rsi_1m = signal_value(s, ai, :rsi_1m, ats)
-    bb_lower_1m = signal_value(s, ai, :bb_lower_1m, ats)
+    trend_1h = signal_value(s, ii, :trend_1h, ats)
+    rsi_1h = signal_value(s, ii, :rsi_1h, ats)
+    sma_15m = signal_value(s, ii, :sma_15m, ats)
+    macd_15m = signal_value(s, ii, :macd_15m, ats)
+    rsi_1m = signal_value(s, ii, :rsi_1m, ats)
+    bb_lower_1m = signal_value(s, ii, :bb_lower_1m, ats)
     
     # Validate all signals
     if any(isnothing, [trend_1h, rsi_1h, sma_15m, macd_15m, rsi_1m, bb_lower_1m])
@@ -43,7 +43,7 @@ function isbuy(s::SC, ai, ats)
     end
     
     # Get current price
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     current_price = data.close[idx]
     
@@ -62,14 +62,14 @@ function isbuy(s::SC, ai, ats)
     return higher_tf_bullish && medium_tf_bullish && lower_tf_entry
 end
 
-function issell(s::SC, ai, ats)
+function issell(s::SC, ii, ats)
     # Get all required signals
-    trend_1h = signal_value(s, ai, :trend_1h, ats)
-    rsi_1h = signal_value(s, ai, :rsi_1h, ats)
-    sma_15m = signal_value(s, ai, :sma_15m, ats)
-    macd_15m = signal_value(s, ai, :macd_15m, ats)
-    rsi_1m = signal_value(s, ai, :rsi_1m, ats)
-    bb_upper_1m = signal_value(s, ai, :bb_upper_1m, ats)
+    trend_1h = signal_value(s, ii, :trend_1h, ats)
+    rsi_1h = signal_value(s, ii, :rsi_1h, ats)
+    sma_15m = signal_value(s, ii, :sma_15m, ats)
+    macd_15m = signal_value(s, ii, :macd_15m, ats)
+    rsi_1m = signal_value(s, ii, :rsi_1m, ats)
+    bb_upper_1m = signal_value(s, ii, :bb_upper_1m, ats)
     
     # Validate all signals
     if any(isnothing, [trend_1h, rsi_1h, sma_15m, macd_15m, rsi_1m, bb_upper_1m])
@@ -77,7 +77,7 @@ function issell(s::SC, ai, ats)
     end
     
     # Get current price
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     current_price = data.close[idx]
     
@@ -97,18 +97,18 @@ function issell(s::SC, ai, ats)
 end
 
 # Alternative: Trend-following version
-function isbuy_trend_following(s::SC, ai, ats)
+function isbuy_trend_following(s::SC, ii, ats)
     # Get trend signals from multiple timeframes
-    trend_1h = signal_value(s, ai, :trend_1h, ats)
-    sma_15m = signal_value(s, ai, :sma_15m, ats)
-    macd_15m = signal_value(s, ai, :macd_15m, ats)
-    rsi_1m = signal_value(s, ai, :rsi_1m, ats)
+    trend_1h = signal_value(s, ii, :trend_1h, ats)
+    sma_15m = signal_value(s, ii, :sma_15m, ats)
+    macd_15m = signal_value(s, ii, :macd_15m, ats)
+    rsi_1m = signal_value(s, ii, :rsi_1m, ats)
     
     if any(isnothing, [trend_1h, sma_15m, macd_15m, rsi_1m])
         return false
     end
     
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     current_price = data.close[idx]
     
@@ -120,18 +120,18 @@ function isbuy_trend_following(s::SC, ai, ats)
     return trend_1h_bullish && trend_15m_bullish && trend_1m_pullback
 end
 
-function issell_trend_following(s::SC, ai, ats)
+function issell_trend_following(s::SC, ii, ats)
     # Get trend signals from multiple timeframes
-    trend_1h = signal_value(s, ai, :trend_1h, ats)
-    sma_15m = signal_value(s, ai, :sma_15m, ats)
-    macd_15m = signal_value(s, ai, :macd_15m, ats)
-    rsi_1m = signal_value(s, ai, :rsi_1m, ats)
+    trend_1h = signal_value(s, ii, :trend_1h, ats)
+    sma_15m = signal_value(s, ii, :sma_15m, ats)
+    macd_15m = signal_value(s, ii, :macd_15m, ats)
+    rsi_1m = signal_value(s, ii, :rsi_1m, ats)
     
     if any(isnothing, [trend_1h, sma_15m, macd_15m, rsi_1m])
         return false
     end
     
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     current_price = data.close[idx]
     

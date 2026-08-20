@@ -1,12 +1,13 @@
 # Tests for data management functions (OHLCV, PnL, trends)
 using Test
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 using Statistics
 
 # Mock types for testing
-abstract type MockAssetInstance end
+abstract type MockInstrumentInstance end
 
-struct MockBTCUSDT <: MockAssetInstance
+struct MockBTCUSDT <: MockInstrumentInstance
     symbol::String
     MockBTCUSDT() = new("BTC/USDT")
 end
@@ -28,9 +29,9 @@ end
 # Mock strategy with data management
 mutable struct MockDataStrategy
     config::NamedTuple
-    ohlcv_data::Dict{MockAssetInstance, MockOHLCVData}
-    pnl_history::Dict{MockAssetInstance, Vector{Float64}}
-    trend_data::Dict{MockAssetInstance, Dict{Symbol, Any}}
+    ohlcv_data::Dict{MockInstrumentInstance, MockOHLCVData}
+    pnl_history::Dict{MockInstrumentInstance, Vector{Float64}}
+    trend_data::Dict{MockInstrumentInstance, Dict{Symbol, Any}}
     performance_metrics::Dict{Symbol, Float64}
     
     function MockDataStrategy()
@@ -41,9 +42,9 @@ mutable struct MockDataStrategy
         )
         new(
             config,
-            Dict{MockAssetInstance, MockOHLCVData}(),
-            Dict{MockAssetInstance, Vector{Float64}}(),
-            Dict{MockAssetInstance, Dict{Symbol, Any}}(),
+            Dict{MockInstrumentInstance, MockOHLCVData}(),
+            Dict{MockInstrumentInstance, Vector{Float64}}(),
+            Dict{MockInstrumentInstance, Dict{Symbol, Any}}(),
             Dict{Symbol, Float64}()
         )
     end
@@ -79,15 +80,15 @@ end
     
     @testset "initialize_ohlcv! function" begin
         s = MockDataStrategy()
-        ai = MockBTCUSDT()
+        ii = MockBTCUSDT()
         
         # Mock the initialize_ohlcv! function
-        function initialize_ohlcv!(s::MockDataStrategy, ai::MockAssetInstance; periods::Int = 100)
-            if !haskey(s.ohlcv_data, ai)
-                s.ohlcv_data[ai] = MockOHLCVData()
+        function initialize_ohlcv!(s::MockDataStrategy, ii::MockInstrumentInstance; periods::Int = 100)
+            if !haskey(s.ohlcv_data, ii)
+                s.ohlcv_data[ii] = MockOHLCVData()
             end
             
-            data = s.ohlcv_data[ai]
+            data = s.ohlcv_data[ii]
             start_time = now() - Minute(periods)
             
             generate_mock_ohlcv!(data, start_time, periods)
@@ -96,13 +97,13 @@ end
         end
         
         # Test initialization
-        @test initialize_ohlcv!(s, ai; periods = 50)
-        @test haskey(s.ohlcv_data, ai)
-        @test length(s.ohlcv_data[ai].timestamps) == 50
-        @test length(s.ohlcv_data[ai].close) == 50
+        @test initialize_ohlcv!(s, ii; periods = 50)
+        @test haskey(s.ohlcv_data, ii)
+        @test length(s.ohlcv_data[ii].timestamps) == 50
+        @test length(s.ohlcv_data[ii].close) == 50
         
         # Test data quality
-        data = s.ohlcv_data[ai]
+        data = s.ohlcv_data[ii]
         @test all(data.high .>= data.low)
         @test all(data.high .>= data.open)
         @test all(data.high .>= data.close)
@@ -117,34 +118,34 @@ end
         
         # Test re-initialization doesn't duplicate data
         initial_length = length(data.timestamps)
-        initialize_ohlcv!(s, ai; periods = 25)
-        @test length(s.ohlcv_data[ai].timestamps) == 25  # Should replace, not append
+        initialize_ohlcv!(s, ii; periods = 25)
+        @test length(s.ohlcv_data[ii].timestamps) == 25  # Should replace, not append
         
         # Test with zero periods
-        @test !initialize_ohlcv!(s, ai; periods = 0)
+        @test !initialize_ohlcv!(s, ii; periods = 0)
         
         # Test with large periods
-        @test initialize_ohlcv!(s, ai; periods = 1000)
-        @test length(s.ohlcv_data[ai].timestamps) == 1000
+        @test initialize_ohlcv!(s, ii; periods = 1000)
+        @test length(s.ohlcv_data[ii].timestamps) == 1000
     end
     
     @testset "track_pnl! function" begin
         s = MockDataStrategy()
-        ai = MockBTCUSDT()
+        ii = MockBTCUSDT()
         
         # Initialize with some OHLCV data
-        initialize_ohlcv!(s, ai; periods = 50)
+        initialize_ohlcv!(s, ii; periods = 50)
         
         # Mock the track_pnl! function
-        function track_pnl!(s::MockDataStrategy, ai::MockAssetInstance, ats::DateTime, ts::DateTime; 
+        function track_pnl!(s::MockDataStrategy, ii::MockInstrumentInstance, ats::DateTime, ts::DateTime; 
                            interval::Period = Minute(s.config.pnl_n))
             
-            if !haskey(s.pnl_history, ai)
-                s.pnl_history[ai] = Float64[]
+            if !haskey(s.pnl_history, ii)
+                s.pnl_history[ii] = Float64[]
             end
             
             # Calculate PnL based on price movement
-            data = s.ohlcv_data[ai]
+            data = s.ohlcv_data[ii]
             if isempty(data.close)
                 return 0.0
             end
@@ -166,11 +167,11 @@ end
             pnl_pct = (current_price - past_price) / past_price
             
             # Store PnL
-            push!(s.pnl_history[ai], pnl_pct)
+            push!(s.pnl_history[ii], pnl_pct)
             
             # Keep only recent PnL history
-            if length(s.pnl_history[ai]) > s.config.pnl_n * 2
-                s.pnl_history[ai] = s.pnl_history[ai][end-s.config.pnl_n+1:end]
+            if length(s.pnl_history[ii]) > s.config.pnl_n * 2
+                s.pnl_history[ii] = s.pnl_history[ii][end-s.config.pnl_n+1:end]
             end
             
             return pnl_pct
@@ -179,57 +180,57 @@ end
         # Test PnL tracking
         ats = now()
         ts = now()
-        pnl = track_pnl!(s, ai, ats, ts)
+        pnl = track_pnl!(s, ii, ats, ts)
         
         @test pnl isa Float64
-        @test haskey(s.pnl_history, ai)
-        @test length(s.pnl_history[ai]) == 1
-        @test s.pnl_history[ai][1] == pnl
+        @test haskey(s.pnl_history, ii)
+        @test length(s.pnl_history[ii]) == 1
+        @test s.pnl_history[ii][1] == pnl
         
         # Test multiple PnL calculations
         for i in 1:20
-            pnl_i = track_pnl!(s, ai, ats + Minute(i), ts + Minute(i))
+            pnl_i = track_pnl!(s, ii, ats + Minute(i), ts + Minute(i))
             @test pnl_i isa Float64
         end
         
-        @test length(s.pnl_history[ai]) == 21
+        @test length(s.pnl_history[ii]) == 21
         
         # Test PnL history limit
         for i in 1:50
-            track_pnl!(s, ai, ats + Minute(i + 20), ts + Minute(i + 20))
+            track_pnl!(s, ii, ats + Minute(i + 20), ts + Minute(i + 20))
         end
         
-        @test length(s.pnl_history[ai]) <= s.config.pnl_n * 2
+        @test length(s.pnl_history[ii]) <= s.config.pnl_n * 2
         
         # Test with custom interval
-        pnl_custom = track_pnl!(s, ai, ats, ts; interval = Minute(5))
+        pnl_custom = track_pnl!(s, ii, ats, ts; interval = Minute(5))
         @test pnl_custom isa Float64
         
         # Test edge cases
         empty_strategy = MockDataStrategy()
-        pnl_empty = track_pnl!(empty_strategy, ai, ats, ts)
+        pnl_empty = track_pnl!(empty_strategy, ii, ats, ts)
         @test pnl_empty == 0.0
     end
     
     @testset "track_trends! function" begin
         s = MockDataStrategy()
-        ai = MockBTCUSDT()
+        ii = MockBTCUSDT()
         
         # Initialize with OHLCV data
-        initialize_ohlcv!(s, ai; periods = 100)
+        initialize_ohlcv!(s, ii; periods = 100)
         
         # Mock the track_trends! function
-        function track_trends!(s::MockDataStrategy, ai::MockAssetInstance, ats::DateTime)
-            if !haskey(s.trend_data, ai)
-                s.trend_data[ai] = Dict{Symbol, Any}()
+        function track_trends!(s::MockDataStrategy, ii::MockInstrumentInstance, ats::DateTime)
+            if !haskey(s.trend_data, ii)
+                s.trend_data[ii] = Dict{Symbol, Any}()
             end
             
-            data = s.ohlcv_data[ai]
+            data = s.ohlcv_data[ii]
             if length(data.close) < 20
                 return false
             end
             
-            trends = s.trend_data[ai]
+            trends = s.trend_data[ii]
             
             # Calculate simple moving averages
             sma_5 = sum(data.close[end-4:end]) / 5
@@ -265,12 +266,12 @@ end
         
         # Test trend tracking
         ats = now()
-        result = track_trends!(s, ai, ats)
+        result = track_trends!(s, ii, ats)
         
         @test result == true
-        @test haskey(s.trend_data, ai)
+        @test haskey(s.trend_data, ii)
         
-        trends = s.trend_data[ai]
+        trends = s.trend_data[ii]
         @test haskey(trends, :direction)
         @test haskey(trends, :strength)
         @test haskey(trends, :volatility)
@@ -296,33 +297,33 @@ end
         
         # Test trend consistency over time
         for i in 1:10
-            track_trends!(s, ai, ats + Minute(i))
+            track_trends!(s, ii, ats + Minute(i))
         end
         
         # Should still have valid trend data
-        @test haskey(s.trend_data[ai], :direction)
-        @test s.trend_data[ai][:last_update] == ats + Minute(10)
+        @test haskey(s.trend_data[ii], :direction)
+        @test s.trend_data[ii][:last_update] == ats + Minute(10)
     end
     
     @testset "Performance metrics calculation" begin
         s = MockDataStrategy()
-        ai = MockBTCUSDT()
+        ii = MockBTCUSDT()
         
         # Initialize with data and PnL history
-        initialize_ohlcv!(s, ai; periods = 100)
+        initialize_ohlcv!(s, ii; periods = 100)
         
         # Generate some PnL history
         for i in 1:30
-            track_pnl!(s, ai, now() - Minute(30 - i), now() - Minute(30 - i))
+            track_pnl!(s, ii, now() - Minute(30 - i), now() - Minute(30 - i))
         end
         
         # Mock performance metrics calculation
-        function calculate_performance_metrics!(s::MockDataStrategy, ai::MockAssetInstance)
-            if !haskey(s.pnl_history, ai) || isempty(s.pnl_history[ai])
+        function calculate_performance_metrics!(s::MockDataStrategy, ii::MockInstrumentInstance)
+            if !haskey(s.pnl_history, ii) || isempty(s.pnl_history[ii])
                 return false
             end
             
-            pnl_data = s.pnl_history[ai]
+            pnl_data = s.pnl_history[ii]
             
             # Calculate basic metrics
             s.performance_metrics[:total_return] = sum(pnl_data)
@@ -350,7 +351,7 @@ end
         end
         
         # Test performance calculation
-        result = calculate_performance_metrics!(s, ai)
+        result = calculate_performance_metrics!(s, ii)
         @test result == true
         
         @test haskey(s.performance_metrics, :total_return)
@@ -366,21 +367,21 @@ end
         
         # Test with empty PnL history
         empty_strategy = MockDataStrategy()
-        result_empty = calculate_performance_metrics!(empty_strategy, ai)
+        result_empty = calculate_performance_metrics!(empty_strategy, ii)
         @test result_empty == false
     end
     
     @testset "Data validation and staleness checking" begin
         s = MockDataStrategy()
-        ai = MockBTCUSDT()
+        ii = MockBTCUSDT()
         
         # Mock data validation functions
-        function is_ohlcv_stale(s::MockDataStrategy, ai::MockAssetInstance, max_age::Period = Minute(5))
-            if !haskey(s.ohlcv_data, ai)
+        function is_ohlcv_stale(s::MockDataStrategy, ii::MockInstrumentInstance, max_age::Period = Minute(5))
+            if !haskey(s.ohlcv_data, ii)
                 return true
             end
             
-            data = s.ohlcv_data[ai]
+            data = s.ohlcv_data[ii]
             if isempty(data.timestamps)
                 return true
             end
@@ -389,12 +390,12 @@ end
             return now() - last_update > max_age
         end
         
-        function validate_ohlcv_data(s::MockDataStrategy, ai::MockAssetInstance)
-            if !haskey(s.ohlcv_data, ai)
+        function validate_ohlcv_data(s::MockDataStrategy, ii::MockInstrumentInstance)
+            if !haskey(s.ohlcv_data, ii)
                 return false, ["No OHLCV data found"]
             end
             
-            data = s.ohlcv_data[ai]
+            data = s.ohlcv_data[ii]
             errors = String[]
             
             # Check data consistency
@@ -431,35 +432,35 @@ end
         end
         
         # Test with fresh data
-        initialize_ohlcv!(s, ai; periods = 50)
-        @test !is_ohlcv_stale(s, ai)
+        initialize_ohlcv!(s, ii; periods = 50)
+        @test !is_ohlcv_stale(s, ii)
         
-        is_valid, errors = validate_ohlcv_data(s, ai)
+        is_valid, errors = validate_ohlcv_data(s, ii)
         @test is_valid == true
         @test isempty(errors)
         
         # Test staleness
-        @test is_ohlcv_stale(s, ai, Microsecond(1))  # Very short max age
-        @test !is_ohlcv_stale(s, ai, Hour(1))       # Long max age
+        @test is_ohlcv_stale(s, ii, Microsecond(1))  # Very short max age
+        @test !is_ohlcv_stale(s, ii, Hour(1))       # Long max age
         
         # Test with no data
         empty_strategy = MockDataStrategy()
-        @test is_ohlcv_stale(empty_strategy, ai)
+        @test is_ohlcv_stale(empty_strategy, ii)
         
-        is_valid_empty, errors_empty = validate_ohlcv_data(empty_strategy, ai)
+        is_valid_empty, errors_empty = validate_ohlcv_data(empty_strategy, ii)
         @test is_valid_empty == false
         @test !isempty(errors_empty)
         
         # Test with corrupted data
         corrupted_strategy = MockDataStrategy()
-        initialize_ohlcv!(corrupted_strategy, ai; periods = 10)
+        initialize_ohlcv!(corrupted_strategy, ii; periods = 10)
         
         # Corrupt the data
-        corrupted_data = corrupted_strategy.ohlcv_data[ai]
+        corrupted_data = corrupted_strategy.ohlcv_data[ii]
         corrupted_data.high[1] = corrupted_data.low[1] - 100  # Make high < low
         corrupted_data.volume[2] = -10.0  # Negative volume
         
-        is_valid_corrupted, errors_corrupted = validate_ohlcv_data(corrupted_strategy, ai)
+        is_valid_corrupted, errors_corrupted = validate_ohlcv_data(corrupted_strategy, ii)
         @test is_valid_corrupted == false
         @test length(errors_corrupted) >= 2
         @test any(contains.(errors_corrupted, "High < Low"))
@@ -468,15 +469,15 @@ end
     
     @testset "Data synchronization and limits" begin
         s = MockDataStrategy()
-        ai = MockBTCUSDT()
+        ii = MockBTCUSDT()
         
         # Mock data synchronization function
-        function sync_ohlcv_data!(s::MockDataStrategy, ai::MockAssetInstance, new_data::Vector{Tuple{DateTime, Float64, Float64, Float64, Float64, Float64}})
-            if !haskey(s.ohlcv_data, ai)
-                s.ohlcv_data[ai] = MockOHLCVData()
+        function sync_ohlcv_data!(s::MockDataStrategy, ii::MockInstrumentInstance, new_data::Vector{Tuple{DateTime, Float64, Float64, Float64, Float64, Float64}})
+            if !haskey(s.ohlcv_data, ii)
+                s.ohlcv_data[ii] = MockOHLCVData()
             end
             
-            data = s.ohlcv_data[ai]
+            data = s.ohlcv_data[ii]
             
             # Add new data
             for (timestamp, open, high, low, close, volume) in new_data
@@ -510,9 +511,9 @@ end
             (now() - Minute(3), 50150.0, 50300.0, 50100.0, 50250.0, 110.0)
         ]
         
-        result_length = sync_ohlcv_data!(s, ai, new_data)
+        result_length = sync_ohlcv_data!(s, ii, new_data)
         @test result_length == 3
-        @test length(s.ohlcv_data[ai].timestamps) == 3
+        @test length(s.ohlcv_data[ii].timestamps) == 3
         
         # Test sync limit
         s.config = merge(s.config, (sync_history_limit = 2,))
@@ -522,13 +523,13 @@ end
             (now() - Minute(1), 50300.0, 50400.0, 50250.0, 50350.0, 115.0)
         ]
         
-        result_length_limited = sync_ohlcv_data!(s, ai, additional_data)
+        result_length_limited = sync_ohlcv_data!(s, ii, additional_data)
         @test result_length_limited == 2  # Should be limited to sync_history_limit
-        @test length(s.ohlcv_data[ai].timestamps) == 2
+        @test length(s.ohlcv_data[ii].timestamps) == 2
         
         # Verify the oldest data was removed
-        @test s.ohlcv_data[ai].timestamps[1] == now() - Minute(2)
-        @test s.ohlcv_data[ai].timestamps[2] == now() - Minute(1)
+        @test s.ohlcv_data[ii].timestamps[1] == now() - Minute(2)
+        @test s.ohlcv_data[ii].timestamps[2] == now() - Minute(1)
     end
 end
 

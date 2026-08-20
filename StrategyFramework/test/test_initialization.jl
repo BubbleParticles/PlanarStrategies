@@ -1,17 +1,18 @@
 # Tests for strategy initialization system
 using Test
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 
 # Mock Planar types and functions for testing
 struct MockStrategy
     attrs::Dict{Symbol, Any}
-    universe::Vector{MockAssetInstance}
+    universe::Vector{MockInstrumentInstance}
     timeframe::Symbol
     
-    MockStrategy() = new(Dict{Symbol, Any}(), MockAssetInstance[], :tf_1m)
+    MockStrategy() = new(Dict{Symbol, Any}(), MockInstrumentInstance[], :tf_1m)
 end
 
-struct MockAssetInstance
+struct MockInstrumentInstance
     symbol::String
 end
 
@@ -97,9 +98,9 @@ include("../src/core/initialization.jl")
         
         # Create position tracker with data
         tracker = PositionTracker()
-        ai = MockAssetInstance("BTC/USDT")
-        tracker.extremas[ai] = "mock_extrema"
-        tracker.backoff[ai] = now()
+        ii = MockInstrumentInstance("BTC/USDT")
+        tracker.extremas[ii] = "mock_extrema"
+        tracker.backoff[ii] = now()
         s.attrs[:position_tracker] = tracker
         
         # Create performance metrics with data
@@ -296,18 +297,18 @@ include("../src/core/initialization.jl")
         ts = now()
         
         # Set up universe
-        ai1 = MockAssetInstance("BTC/USDT")
-        ai2 = MockAssetInstance("ETH/USDT")
-        s.universe = [ai1, ai2]
+        ii1 = MockInstrumentInstance("BTC/USDT")
+        ii2 = MockInstrumentInstance("ETH/USDT")
+        s.universe = [ii1, ii2]
         
         # Mock required functions
         track_pnl!(s::MockStrategy, ats::DateTime) = nothing
-        should_trade(sg::MockSignalGenerator, s::MockStrategy, ai::MockAssetInstance, ats::DateTime) = true
-        generate_buy_signal(sg::MockSignalGenerator, s::MockStrategy, ai::MockAssetInstance, ats::DateTime) = true
-        generate_sell_signal(sg::MockSignalGenerator, s::MockStrategy, ai::MockAssetInstance, ats::DateTime) = false
-        handle_buy_signal!(s::MockStrategy, ai::MockAssetInstance, ats::DateTime, ts::DateTime) = nothing
-        handle_sell_signal!(s::MockStrategy, ai::MockAssetInstance, ats::DateTime, ts::DateTime) = nothing
-        update_asset_tracking!(s::MockStrategy, ai::MockAssetInstance, ats::DateTime) = nothing
+        should_trade(sg::MockSignalGenerator, s::MockStrategy, ii::MockInstrumentInstance, ats::DateTime) = true
+        generate_buy_signal(sg::MockSignalGenerator, s::MockStrategy, ii::MockInstrumentInstance, ats::DateTime) = true
+        generate_sell_signal(sg::MockSignalGenerator, s::MockStrategy, ii::MockInstrumentInstance, ats::DateTime) = false
+        handle_buy_signal!(s::MockStrategy, ii::MockInstrumentInstance, ats::DateTime, ts::DateTime) = nothing
+        handle_sell_signal!(s::MockStrategy, ii::MockInstrumentInstance, ats::DateTime, ts::DateTime) = nothing
+        update_asset_tracking!(s::MockStrategy, ii::MockInstrumentInstance, ats::DateTime) = nothing
         
         # Test polling
         poll_strategy!(s, sg, ts)
@@ -316,7 +317,7 @@ include("../src/core/initialization.jl")
         @test true
         
         # Test with signal generator that doesn't allow trading
-        should_trade_false(sg::MockSignalGenerator, s::MockStrategy, ai::MockAssetInstance, ats::DateTime) = false
+        should_trade_false(sg::MockSignalGenerator, s::MockStrategy, ii::MockInstrumentInstance, ats::DateTime) = false
         
         # Temporarily replace should_trade function
         original_should_trade = should_trade
@@ -403,8 +404,8 @@ include("../src/core/initialization.jl")
         s.attrs[:def_lev] = 2.0
         
         tracker = PositionTracker()
-        ai = MockAssetInstance("BTC/USDT")
-        tracker.extremas[ai] = "test_data"
+        ii = MockInstrumentInstance("BTC/USDT")
+        tracker.extremas[ii] = "test_data"
         s.attrs[:position_tracker] = tracker
         
         basic_strategy_reset!(s)
@@ -425,10 +426,10 @@ include("../src/core/initialization.jl")
         
         # Test initialize_warmup_data!
         s_warmup = MockStrategy()
-        s_warmup.universe = [MockAssetInstance("BTC/USDT"), MockAssetInstance("ETH/USDT")]
+        s_warmup.universe = [MockInstrumentInstance("BTC/USDT"), MockInstrumentInstance("ETH/USDT")]
         
         # Mock initialize_asset_warmup_data!
-        initialize_asset_warmup_data!(s::MockStrategy, ai::MockAssetInstance, start::DateTime, end_time::DateTime) = nothing
+        initialize_asset_warmup_data!(s::MockStrategy, ii::MockInstrumentInstance, start::DateTime, end_time::DateTime) = nothing
         
         warmup_period = Hour(12)
         initialize_warmup_data!(s_warmup, warmup_period)

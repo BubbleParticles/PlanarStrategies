@@ -12,7 +12,7 @@ Users should customize this function to implement their own buy signal logic.
 
 # Arguments
 - `s::SC`: Strategy instance
-- `ai`: Asset instance
+- `ii`: Instrument instance
 - `ats`: Available timestamp
 
 # Returns
@@ -20,9 +20,9 @@ Users should customize this function to implement their own buy signal logic.
 
 # Example Implementation
 ```julia
-function isbuy(s::SC, ai, ats)
+function isbuy(s::SC, ii, ats)
     # Example: Simple moving average crossover
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     if idx < 20  # Need at least 20 periods
         return false
@@ -37,7 +37,7 @@ function isbuy(s::SC, ai, ats)
 end
 ```
 """
-function isbuy(s::SC, ai, ats)
+function isbuy(s::SC, ii, ats)
     # Placeholder implementation - always returns false (no buy signals)
     # Users should customize this function to implement their own buy signal logic
     return rand(Bool)
@@ -51,7 +51,7 @@ Users should customize this function to implement their own sell signal logic.
 
 # Arguments
 - `s::SC`: Strategy instance
-- `ai`: Asset instance
+- `ii`: Instrument instance
 - `ats`: Available timestamp
 
 # Returns
@@ -59,9 +59,9 @@ Users should customize this function to implement their own sell signal logic.
 
 # Example Implementation
 ```julia
-function issell(s::SC, ai, ats)
+function issell(s::SC, ii, ats)
     # Example: Simple moving average crossover
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     if idx < 20  # Need at least 20 periods
         return false
@@ -76,7 +76,7 @@ function issell(s::SC, ai, ats)
 end
 ```
 """
-function issell(s::SC, ai, ats)
+function issell(s::SC, ii, ats)
     # Placeholder implementation - always returns false (no sell signals)
     # Users should customize this function to implement their own sell signal logic
     return rand(Bool)

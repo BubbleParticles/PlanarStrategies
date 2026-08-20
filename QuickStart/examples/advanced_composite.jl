@@ -40,29 +40,29 @@ function setsignals!(s)
 end
 
 # Signal scoring system
-function calculate_signal_score(s::SC, ai, ats, signal_type::Symbol)
+function calculate_signal_score(s::SC, ii, ats, signal_type::Symbol)
     score = 0.0
     max_score = 0.0
     
     # Get all indicator values
-    sma_fast = signal_value(s, ai, :sma_fast, ats)
-    sma_slow = signal_value(s, ai, :sma_slow, ats)
-    ema_trend = signal_value(s, ai, :ema_trend, ats)
-    rsi = signal_value(s, ai, :rsi, ats)
-    macd_line = signal_value(s, ai, :macd_line, ats)
-    macd_signal = signal_value(s, ai, :macd_signal, ats)
-    macd_histogram = signal_value(s, ai, :macd_histogram, ats)
-    bb_upper = signal_value(s, ai, :bb_upper, ats)
-    bb_middle = signal_value(s, ai, :bb_middle, ats)
-    bb_lower = signal_value(s, ai, :bb_lower, ats)
-    atr = signal_value(s, ai, :atr, ats)
-    volume_ma = signal_value(s, ai, :volume_ma, ats)
-    obv = signal_value(s, ai, :obv, ats)
-    trend_1h = signal_value(s, ai, :trend_1h, ats)
-    rsi_1h = signal_value(s, ai, :rsi_1h, ats)
+    sma_fast = signal_value(s, ii, :sma_fast, ats)
+    sma_slow = signal_value(s, ii, :sma_slow, ats)
+    ema_trend = signal_value(s, ii, :ema_trend, ats)
+    rsi = signal_value(s, ii, :rsi, ats)
+    macd_line = signal_value(s, ii, :macd_line, ats)
+    macd_signal = signal_value(s, ii, :macd_signal, ats)
+    macd_histogram = signal_value(s, ii, :macd_histogram, ats)
+    bb_upper = signal_value(s, ii, :bb_upper, ats)
+    bb_middle = signal_value(s, ii, :bb_middle, ats)
+    bb_lower = signal_value(s, ii, :bb_lower, ats)
+    atr = signal_value(s, ii, :atr, ats)
+    volume_ma = signal_value(s, ii, :volume_ma, ats)
+    obv = signal_value(s, ii, :obv, ats)
+    trend_1h = signal_value(s, ii, :trend_1h, ats)
+    rsi_1h = signal_value(s, ii, :rsi_1h, ats)
     
     # Get current price and volume
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     current_price = data.close[idx]
     current_volume = data.volume[idx]
@@ -149,7 +149,7 @@ function calculate_signal_score(s::SC, ai, ats, signal_type::Symbol)
         
         if !isnothing(obv) && idx > 1
             max_score += 5.0
-            prev_obv = signal_value(s, ai, :obv, data.timestamp[idx-1])
+            prev_obv = signal_value(s, ii, :obv, data.timestamp[idx-1])
             if !isnothing(prev_obv) && obv > prev_obv
                 score += 5.0   # OBV increasing
             end
@@ -247,7 +247,7 @@ function calculate_signal_score(s::SC, ai, ats, signal_type::Symbol)
         
         if !isnothing(obv) && idx > 1
             max_score += 5.0
-            prev_obv = signal_value(s, ai, :obv, data.timestamp[idx-1])
+            prev_obv = signal_value(s, ii, :obv, data.timestamp[idx-1])
             if !isnothing(prev_obv) && obv < prev_obv
                 score += 5.0   # OBV decreasing
             end
@@ -269,16 +269,16 @@ function calculate_signal_score(s::SC, ai, ats, signal_type::Symbol)
     return max_score > 0 ? (score / max_score) * 100 : 0.0
 end
 
-function isbuy(s::SC, ai, ats)
+function isbuy(s::SC, ii, ats)
     # Calculate composite buy signal score
-    buy_score = calculate_signal_score(s, ai, ats, :buy)
+    buy_score = calculate_signal_score(s, ii, ats, :buy)
     
     # Adaptive threshold based on market conditions
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     
     # Get volatility for adaptive threshold
-    atr = signal_value(s, ai, :atr, ats)
+    atr = signal_value(s, ii, :atr, ats)
     base_threshold = 60.0  # Base threshold (60% of max score)
     
     if !isnothing(atr)
@@ -290,7 +290,7 @@ function isbuy(s::SC, ai, ats)
     end
     
     # Additional filters
-    rsi = signal_value(s, ai, :rsi, ats)
+    rsi = signal_value(s, ii, :rsi, ats)
     if !isnothing(rsi) && rsi > 80
         # Don't buy when extremely overbought
         return false
@@ -299,16 +299,16 @@ function isbuy(s::SC, ai, ats)
     return buy_score >= threshold
 end
 
-function issell(s::SC, ai, ats)
+function issell(s::SC, ii, ats)
     # Calculate composite sell signal score
-    sell_score = calculate_signal_score(s, ai, ats, :sell)
+    sell_score = calculate_signal_score(s, ii, ats, :sell)
     
     # Adaptive threshold based on market conditions
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     
     # Get volatility for adaptive threshold
-    atr = signal_value(s, ai, :atr, ats)
+    atr = signal_value(s, ii, :atr, ats)
     base_threshold = 60.0  # Base threshold (60% of max score)
     
     if !isnothing(atr)
@@ -320,7 +320,7 @@ function issell(s::SC, ai, ats)
     end
     
     # Additional filters
-    rsi = signal_value(s, ai, :rsi, ats)
+    rsi = signal_value(s, ii, :rsi, ats)
     if !isnothing(rsi) && rsi < 20
         # Don't sell when extremely oversold
         return false
@@ -330,9 +330,9 @@ function issell(s::SC, ai, ats)
 end
 
 # Alternative: Machine Learning-inspired approach
-function isbuy_ml_inspired(s::SC, ai, ats)
+function isbuy_ml_inspired(s::SC, ii, ats)
     # Feature extraction
-    features = extract_features(s, ai, ats)
+    features = extract_features(s, ii, ats)
     
     if isempty(features)
         return false
@@ -359,21 +359,21 @@ function isbuy_ml_inspired(s::SC, ai, ats)
     return probability > 0.7
 end
 
-function extract_features(s::SC, ai, ats)
+function extract_features(s::SC, ii, ats)
     features = Float64[]
     
     # Get indicators
-    sma_fast = signal_value(s, ai, :sma_fast, ats)
-    sma_slow = signal_value(s, ai, :sma_slow, ats)
-    rsi = signal_value(s, ai, :rsi, ats)
-    macd_line = signal_value(s, ai, :macd_line, ats)
-    macd_signal = signal_value(s, ai, :macd_signal, ats)
-    bb_upper = signal_value(s, ai, :bb_upper, ats)
-    bb_lower = signal_value(s, ai, :bb_lower, ats)
-    volume_ma = signal_value(s, ai, :volume_ma, ats)
-    trend_1h = signal_value(s, ai, :trend_1h, ats)
+    sma_fast = signal_value(s, ii, :sma_fast, ats)
+    sma_slow = signal_value(s, ii, :sma_slow, ats)
+    rsi = signal_value(s, ii, :rsi, ats)
+    macd_line = signal_value(s, ii, :macd_line, ats)
+    macd_signal = signal_value(s, ii, :macd_signal, ats)
+    bb_upper = signal_value(s, ii, :bb_upper, ats)
+    bb_lower = signal_value(s, ii, :bb_lower, ats)
+    volume_ma = signal_value(s, ii, :volume_ma, ats)
+    trend_1h = signal_value(s, ii, :trend_1h, ats)
     
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     current_price = data.close[idx]
     current_volume = data.volume[idx]

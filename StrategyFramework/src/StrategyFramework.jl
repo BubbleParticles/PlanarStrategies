@@ -101,36 +101,10 @@ export send_trade_notification, send_error_notification, send_performance_update
 export setup_telegram_alerts, is_telegram_available, get_telegram_status
 
 # Export exchange and asset management functions
-export ExchangeConfig, AssetUniverseConfig, MarketDataConfig
+export ExchangeConfig, InstrumentUniverseConfig, MarketDataConfig
 export configure_exchange!, get_exchange_config, setup_exchange!
 export configure_asset_universe!, get_universe_config, create_asset_universe
 export update_asset_universe!, configure_market_data!, get_market_data_config
 export setup_market_data_sources!, get_available_assets, validate_asset_universe
-
-# Module initialization
-function __init__()
-    # Initialize environment variables and constants
-    ASSETS_FLAG[] = env_assets_flag()
-    WATCHER_EXC[] = env_watcher_exchange()
-    OHLCV_METHOD[] = env_ohlcv_method()
-    PROFILING[] = env_profiling_enabled()
-    
-    # Set default asset configurations if none exist
-    if isempty(ASSETS_CT)
-        # Default configuration for common exchanges
-        default_assets = String[
-            "BTC/USDT:USDT",
-            "ETH/USDT:USDT",
-            "SOL/USDT:USDT",
-        ]
-        primary_asset = String["BTC/USDT:USDT"]
-        setassets!(:default, :phemex, default_assets)
-        setassets!(:default, :binance, default_assets)
-        setassets!(:test, :phemex, primary_asset)
-        setassets!(:test, :binance, primary_asset)
-    end
-    
-    @debug "StrategyFramework initialized" ASSETS_FLAG=ASSETS_FLAG[] WATCHER_EXC=WATCHER_EXC[] OHLCV_METHOD=OHLCV_METHOD[] PROFILING=PROFILING[]
-end
 
 end

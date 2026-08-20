@@ -1,6 +1,7 @@
 # Tests for trend detection system
 using Test
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 using Statistics
 
 # Mock Planar types and functions for testing
@@ -10,11 +11,11 @@ struct MockStrategy
     MockStrategy() = new(Dict{Symbol, Any}())
 end
 
-struct MockAssetInstance
+struct MockInstrumentInstance
     symbol::String
     exchange::Symbol
     
-    MockAssetInstance(symbol::String, exchange::Symbol = :phemex) = new(symbol, exchange)
+    MockInstrumentInstance(symbol::String, exchange::Symbol = :phemex) = new(symbol, exchange)
 end
 
 struct MockMovingExtrema
@@ -72,7 +73,7 @@ Base.length(cb::MockCircularBuffer) = length(cb.data)
 Base.iterate(cb::MockCircularBuffer, state...) = iterate(cb.data, state...)
 
 # Mock constants and functions
-AssetInstance(asset_str::String, exchange::Symbol) = MockAssetInstance(asset_str, exchange)
+InstrumentInstance(asset_str::String, exchange::Symbol) = MockInstrumentInstance(asset_str, exchange)
 
 # Include the trend detection module for testing
 include("../src/data/trend_detection.jl")
@@ -86,25 +87,25 @@ const CircularBuffer = MockCircularBuffer
     
     @testset "trackhl! function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         ats = now()
         
         # Mock OHLCV data
-        s.attrs[:ohlcv_data] = Dict(ai => "mock_ohlcv")
+        s.attrs[:ohlcv_data] = Dict(ii => "mock_ohlcv")
         
         # Test high-low tracking
-        trackhl!(s, ai, ats)
+        trackhl!(s, ii, ats)
         
         # Check that tracking structures were initialized
         @test haskey(s.attrs, :extremas)
         @test haskey(s.attrs, :hl_trackers)
         
         # Check asset-specific data
-        @test haskey(s.attrs[:extremas], ai)
-        @test haskey(s.attrs[:hl_trackers], ai)
+        @test haskey(s.attrs[:extremas], ii)
+        @test haskey(s.attrs[:hl_trackers], ii)
         
         # Check HL tracker structure
-        hl_tracker = s.attrs[:hl_trackers][ai]
+        hl_tracker = s.attrs[:hl_trackers][ii]
         @test haskey(hl_tracker, :last_update)
         @test haskey(hl_tracker, :wma)
         @test haskey(hl_tracker, :trend_direction)
@@ -121,21 +122,21 @@ const CircularBuffer = MockCircularBuffer
     
     @testset "trackqt! function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         ats = now()
         
         # Mock OHLCV data
-        s.attrs[:ohlcv_data] = Dict(ai => "mock_ohlcv")
+        s.attrs[:ohlcv_data] = Dict(ii => "mock_ohlcv")
         
         # Test quote trend tracking
-        trackqt!(s, ai, ats)
+        trackqt!(s, ii, ats)
         
         # Check that tracking structures were initialized
         @test haskey(s.attrs, :qt_trackers)
-        @test haskey(s.attrs[:qt_trackers], ai)
+        @test haskey(s.attrs[:qt_trackers], ii)
         
         # Check QT tracker structure
-        qt_tracker = s.attrs[:qt_trackers][ai]
+        qt_tracker = s.attrs[:qt_trackers][ii]
         @test haskey(qt_tracker, :last_update)
         @test haskey(qt_tracker, :price_history)
         @test haskey(qt_tracker, :volume_history)
@@ -156,14 +157,14 @@ const CircularBuffer = MockCircularBuffer
     
     @testset "track_trends! function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         ats = now()
         
         # Mock OHLCV data
-        s.attrs[:ohlcv_data] = Dict(ai => "mock_ohlcv")
+        s.attrs[:ohlcv_data] = Dict(ii => "mock_ohlcv")
         
         # Test comprehensive trend tracking
-        track_trends!(s, ai, ats)
+        track_trends!(s, ii, ats)
         
         # Check that all tracking components were initialized
         @test haskey(s.attrs, :extremas)
@@ -173,7 +174,7 @@ const CircularBuffer = MockCircularBuffer
         @test haskey(s.attrs, :trend_validation)
         
         # Check composite trend structure
-        composite = s.attrs[:composite_trends][ai]
+        composite = s.attrs[:composite_trends][ii]
         @test haskey(composite, :overall_trend)
         @test haskey(composite, :trend_strength)
         @test haskey(composite, :trend_confidence)
@@ -186,7 +187,7 @@ const CircularBuffer = MockCircularBuffer
         @test composite[:signal_quality] isa Float64
         
         # Check validation structure
-        validation = s.attrs[:trend_validation][ai]
+        validation = s.attrs[:trend_validation][ii]
         @test haskey(validation, :validation_history)
         @test haskey(validation, :signal_reliability)
         @test haskey(validation, :last_validation)
@@ -197,24 +198,24 @@ const CircularBuffer = MockCircularBuffer
     
     @testset "init_hl_tracking! function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         
         # Test initialization
-        init_hl_tracking!(s, ai)
+        init_hl_tracking!(s, ii)
         
         # Check structures were created
         @test haskey(s.attrs, :extremas)
         @test haskey(s.attrs, :hl_trackers)
-        @test haskey(s.attrs[:extremas], ai)
-        @test haskey(s.attrs[:hl_trackers], ai)
+        @test haskey(s.attrs[:extremas], ii)
+        @test haskey(s.attrs[:hl_trackers], ii)
         
         # Check extrema
-        extrema = s.attrs[:extremas][ai]
+        extrema = s.attrs[:extremas][ii]
         @test extrema isa MockMovingExtrema
         @test extrema.capacity == 100
         
         # Check HL tracker
-        hl_tracker = s.attrs[:hl_trackers][ai]
+        hl_tracker = s.attrs[:hl_trackers][ii]
         @test hl_tracker[:wma] isa MockWMA
         @test hl_tracker[:trend_direction] == :neutral
         @test hl_tracker[:trend_strength] == 0.0
@@ -222,22 +223,22 @@ const CircularBuffer = MockCircularBuffer
         
         # Test re-initialization doesn't overwrite
         hl_tracker[:trend_strength] = 0.5
-        init_hl_tracking!(s, ai)
-        @test s.attrs[:hl_trackers][ai][:trend_strength] == 0.5  # Should not reset
+        init_hl_tracking!(s, ii)
+        @test s.attrs[:hl_trackers][ii][:trend_strength] == 0.5  # Should not reset
     end
     
     @testset "init_qt_tracking! function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         
         # Test initialization
-        init_qt_tracking!(s, ai)
+        init_qt_tracking!(s, ii)
         
         # Check structures were created
         @test haskey(s.attrs, :qt_trackers)
-        @test haskey(s.attrs[:qt_trackers], ai)
+        @test haskey(s.attrs[:qt_trackers], ii)
         
-        qt_tracker = s.attrs[:qt_trackers][ai]
+        qt_tracker = s.attrs[:qt_trackers][ii]
         @test qt_tracker[:price_history] isa MockCircularBuffer
         @test qt_tracker[:volume_history] isa MockCircularBuffer
         @test qt_tracker[:roc_short] isa MockCircularBuffer
@@ -251,17 +252,17 @@ const CircularBuffer = MockCircularBuffer
     
     @testset "get_current_ohlcv function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         ats = now()
         
         # Test with no OHLCV data
-        result_no_data = get_current_ohlcv(s, ai, ats)
+        result_no_data = get_current_ohlcv(s, ii, ats)
         @test result_no_data === nothing
         
         # Test with OHLCV data
-        s.attrs[:ohlcv_data] = Dict(ai => "mock_ohlcv")
+        s.attrs[:ohlcv_data] = Dict(ii => "mock_ohlcv")
         
-        result_with_data = get_current_ohlcv(s, ai, ats)
+        result_with_data = get_current_ohlcv(s, ii, ats)
         @test result_with_data isa Dict
         @test haskey(result_with_data, :open)
         @test haskey(result_with_data, :high)
@@ -277,11 +278,11 @@ const CircularBuffer = MockCircularBuffer
     
     @testset "update_moving_extrema! function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         ats = now()
         
         # Initialize tracking
-        init_hl_tracking!(s, ai)
+        init_hl_tracking!(s, ii)
         
         # Test extrema update
         current_data = Dict{Symbol, Float64}(
@@ -290,10 +291,10 @@ const CircularBuffer = MockCircularBuffer
             :close => 50500.0
         )
         
-        update_moving_extrema!(s, ai, current_data, ats)
+        update_moving_extrema!(s, ii, current_data, ats)
         
-        extrema = s.attrs[:extremas][ai]
-        hl_tracker = s.attrs[:hl_trackers][ai]
+        extrema = s.attrs[:extremas][ii]
+        hl_tracker = s.attrs[:hl_trackers][ii]
         
         # Check that extrema were updated
         @test length(extrema.data) == 2  # High and low added
@@ -308,11 +309,11 @@ const CircularBuffer = MockCircularBuffer
     
     @testset "update_hl_trend! function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         ats = now()
         
         # Initialize tracking
-        init_hl_tracking!(s, ai)
+        init_hl_tracking!(s, ii)
         
         current_data = Dict{Symbol, Float64}(
             :open => 50000.0,
@@ -322,9 +323,9 @@ const CircularBuffer = MockCircularBuffer
         )
         
         # Test trend update
-        update_hl_trend!(s, ai, current_data, ats)
+        update_hl_trend!(s, ii, current_data, ats)
         
-        hl_tracker = s.attrs[:hl_trackers][ai]
+        hl_tracker = s.attrs[:hl_trackers][ii]
         
         # Check that WMA was updated
         wma = hl_tracker[:wma]
@@ -347,7 +348,7 @@ const CircularBuffer = MockCircularBuffer
                 :low => 49000.0 + i * 100,
                 :close => 50500.0 + i * 100
             )
-            update_hl_trend!(s, ai, higher_data, ats + Minute(i))
+            update_hl_trend!(s, ii, higher_data, ats + Minute(i))
         end
         
         # Should detect upward trend
@@ -356,12 +357,12 @@ const CircularBuffer = MockCircularBuffer
     
     @testset "check_breakout_signals! function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         ats = now()
         
         # Initialize tracking with some support/resistance levels
-        init_hl_tracking!(s, ai)
-        hl_tracker = s.attrs[:hl_trackers][ai]
+        init_hl_tracking!(s, ii)
+        hl_tracker = s.attrs[:hl_trackers][ii]
         hl_tracker[:support_level] = 49000.0
         hl_tracker[:resistance_level] = 51000.0
         
@@ -372,7 +373,7 @@ const CircularBuffer = MockCircularBuffer
             :close => 51100.0
         )
         
-        check_breakout_signals!(s, ai, breakout_data, ats)
+        check_breakout_signals!(s, ii, breakout_data, ats)
         
         breakout_signals = hl_tracker[:breakout_signals]
         @test length(breakout_signals) == 1
@@ -386,7 +387,7 @@ const CircularBuffer = MockCircularBuffer
             :close => 48900.0
         )
         
-        check_breakout_signals!(s, ai, breakdown_data, ats + Minute(1))
+        check_breakout_signals!(s, ii, breakdown_data, ats + Minute(1))
         
         @test length(breakout_signals) == 2
         @test breakout_signals.data[2][2] == :support_break
@@ -399,21 +400,21 @@ const CircularBuffer = MockCircularBuffer
             :close => 50400.0
         )
         
-        check_breakout_signals!(s, ai, normal_data, ats + Minute(2))
+        check_breakout_signals!(s, ii, normal_data, ats + Minute(2))
         
         @test length(breakout_signals) == 2  # Should remain 2
     end
     
     @testset "update_trend_quality! function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         ats = now()
         
         # Initialize tracking
-        init_qt_tracking!(s, ai)
+        init_qt_tracking!(s, ii)
         
         # Add some price history
-        qt_tracker = s.attrs[:qt_trackers][ai]
+        qt_tracker = s.attrs[:qt_trackers][ii]
         base_time = ats - Minute(15)
         
         # Add upward trending prices
@@ -425,7 +426,7 @@ const CircularBuffer = MockCircularBuffer
                 :volume => volume
             )
             
-            update_trend_quality!(s, ai, current_data, base_time + Minute(i))
+            update_trend_quality!(s, ii, current_data, base_time + Minute(i))
         end
         
         # Check trend quality calculation
@@ -439,8 +440,8 @@ const CircularBuffer = MockCircularBuffer
         
         # Test with mixed price movements
         s_mixed = MockStrategy()
-        init_qt_tracking!(s_mixed, ai)
-        qt_tracker_mixed = s_mixed.attrs[:qt_trackers][ai]
+        init_qt_tracking!(s_mixed, ii)
+        qt_tracker_mixed = s_mixed.attrs[:qt_trackers][ii]
         
         # Add alternating price movements
         for i in 1:15
@@ -450,7 +451,7 @@ const CircularBuffer = MockCircularBuffer
                 :volume => 1000.0
             )
             
-            update_trend_quality!(s_mixed, ai, current_data, base_time + Minute(i))
+            update_trend_quality!(s_mixed, ii, current_data, base_time + Minute(i))
         end
         
         @test qt_tracker_mixed[:trend_quality] <= 0.6  # Should be lower for mixed trend
@@ -459,12 +460,12 @@ const CircularBuffer = MockCircularBuffer
     
     @testset "update_momentum_indicators! function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         ats = now()
         
         # Initialize tracking
-        init_qt_tracking!(s, ai)
-        qt_tracker = s.attrs[:qt_trackers][ai]
+        init_qt_tracking!(s, ii)
+        qt_tracker = s.attrs[:qt_trackers][ii]
         
         # Add sufficient price history for ROC calculation
         base_time = ats - Minute(25)
@@ -480,7 +481,7 @@ const CircularBuffer = MockCircularBuffer
         )
         
         # Test momentum calculation
-        update_momentum_indicators!(s, ai, current_data, ats)
+        update_momentum_indicators!(s, ii, current_data, ats)
         
         # Check ROC calculations
         @test length(qt_tracker[:roc_short]) >= 1
@@ -495,28 +496,28 @@ const CircularBuffer = MockCircularBuffer
         
         # Test with insufficient data
         s_short = MockStrategy()
-        init_qt_tracking!(s_short, ai)
+        init_qt_tracking!(s_short, ii)
         
         # Add only a few data points
         for i in 1:5
-            push!(s_short.attrs[:qt_trackers][ai][:price_history], (base_time + Minute(i), base_price + i * 10))
+            push!(s_short.attrs[:qt_trackers][ii][:price_history], (base_time + Minute(i), base_price + i * 10))
         end
         
-        update_momentum_indicators!(s_short, ai, current_data, ats)
+        update_momentum_indicators!(s_short, ii, current_data, ats)
         
         # Should handle insufficient data gracefully
-        @test isempty(s_short.attrs[:qt_trackers][ai][:roc_short])
-        @test isempty(s_short.attrs[:qt_trackers][ai][:roc_long])
+        @test isempty(s_short.attrs[:qt_trackers][ii][:roc_short])
+        @test isempty(s_short.attrs[:qt_trackers][ii][:roc_long])
     end
     
     @testset "update_volatility_tracking! function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         ats = now()
         
         # Initialize tracking
-        init_qt_tracking!(s, ai)
-        qt_tracker = s.attrs[:qt_trackers][ai]
+        init_qt_tracking!(s, ii)
+        qt_tracker = s.attrs[:qt_trackers][ii]
         
         # Add price and volume history
         base_time = ats - Minute(25)
@@ -534,7 +535,7 @@ const CircularBuffer = MockCircularBuffer
         )
         
         # Test volatility calculation
-        update_volatility_tracking!(s, ai, current_data, ats)
+        update_volatility_tracking!(s, ii, current_data, ats)
         
         # Check volatility calculation
         @test qt_tracker[:volatility] isa Float64
@@ -545,40 +546,40 @@ const CircularBuffer = MockCircularBuffer
         
         # Test with high volume
         high_volume_data = Dict{Symbol, Float64}(:volume => 2000.0)  # Much higher than average
-        update_volatility_tracking!(s, ai, high_volume_data, ats + Minute(1))
+        update_volatility_tracking!(s, ii, high_volume_data, ats + Minute(1))
         @test qt_tracker[:volume_trend] == :increasing
         
         # Test with low volume
         low_volume_data = Dict{Symbol, Float64}(:volume => 500.0)  # Much lower than average
-        update_volatility_tracking!(s, ai, low_volume_data, ats + Minute(2))
+        update_volatility_tracking!(s, ii, low_volume_data, ats + Minute(2))
         @test qt_tracker[:volume_trend] == :decreasing
     end
     
     @testset "update_composite_trend! function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         ats = now()
         
         # Initialize with some trend data
-        init_hl_tracking!(s, ai)
-        init_qt_tracking!(s, ai)
+        init_hl_tracking!(s, ii)
+        init_qt_tracking!(s, ii)
         
         # Set up bullish conditions
-        s.attrs[:hl_trackers][ai][:trend_direction] = :up
-        s.attrs[:hl_trackers][ai][:trend_strength] = 0.8
-        s.attrs[:qt_trackers][ai][:price_momentum] = :bullish
-        s.attrs[:qt_trackers][ai][:momentum] = 0.05
-        s.attrs[:qt_trackers][ai][:trend_quality] = 0.7
-        s.attrs[:qt_trackers][ai][:volatility] = 0.02
-        s.attrs[:qt_trackers][ai][:volume_trend] = :increasing
+        s.attrs[:hl_trackers][ii][:trend_direction] = :up
+        s.attrs[:hl_trackers][ii][:trend_strength] = 0.8
+        s.attrs[:qt_trackers][ii][:price_momentum] = :bullish
+        s.attrs[:qt_trackers][ii][:momentum] = 0.05
+        s.attrs[:qt_trackers][ii][:trend_quality] = 0.7
+        s.attrs[:qt_trackers][ii][:volatility] = 0.02
+        s.attrs[:qt_trackers][ii][:volume_trend] = :increasing
         
         # Test composite trend calculation
-        update_composite_trend!(s, ai, ats)
+        update_composite_trend!(s, ii, ats)
         
         @test haskey(s.attrs, :composite_trends)
-        @test haskey(s.attrs[:composite_trends], ai)
+        @test haskey(s.attrs[:composite_trends], ii)
         
-        composite = s.attrs[:composite_trends][ai]
+        composite = s.attrs[:composite_trends][ii]
         @test composite[:overall_trend] == :bullish
         @test composite[:trend_strength] > 0.0
         @test composite[:trend_confidence] > 0.0
@@ -586,47 +587,47 @@ const CircularBuffer = MockCircularBuffer
         @test composite[:last_update] == ats
         
         # Test bearish conditions
-        s.attrs[:hl_trackers][ai][:trend_direction] = :down
-        s.attrs[:qt_trackers][ai][:price_momentum] = :bearish
+        s.attrs[:hl_trackers][ii][:trend_direction] = :down
+        s.attrs[:qt_trackers][ii][:price_momentum] = :bearish
         
-        update_composite_trend!(s, ai, ats + Minute(1))
+        update_composite_trend!(s, ii, ats + Minute(1))
         
         @test composite[:overall_trend] == :bearish
         
         # Test neutral conditions
-        s.attrs[:hl_trackers][ai][:trend_direction] = :neutral
-        s.attrs[:qt_trackers][ai][:price_momentum] = :neutral
+        s.attrs[:hl_trackers][ii][:trend_direction] = :neutral
+        s.attrs[:qt_trackers][ii][:price_momentum] = :neutral
         
-        update_composite_trend!(s, ai, ats + Minute(2))
+        update_composite_trend!(s, ii, ats + Minute(2))
         
         @test composite[:overall_trend] == :neutral
     end
     
     @testset "validate_trend_signals! function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         ats = now()
         
         # Initialize with consistent trend data
-        init_hl_tracking!(s, ai)
-        init_qt_tracking!(s, ai)
-        update_composite_trend!(s, ai, ats)
+        init_hl_tracking!(s, ii)
+        init_qt_tracking!(s, ii)
+        update_composite_trend!(s, ii, ats)
         
         # Set up consistent bullish signals
-        s.attrs[:composite_trends][ai][:overall_trend] = :bullish
-        s.attrs[:composite_trends][ai][:trend_strength] = 0.8
-        s.attrs[:hl_trackers][ai][:trend_direction] = :up
-        s.attrs[:hl_trackers][ai][:last_update] = ats
-        s.attrs[:qt_trackers][ai][:price_momentum] = :bullish
-        s.attrs[:qt_trackers][ai][:last_update] = ats
+        s.attrs[:composite_trends][ii][:overall_trend] = :bullish
+        s.attrs[:composite_trends][ii][:trend_strength] = 0.8
+        s.attrs[:hl_trackers][ii][:trend_direction] = :up
+        s.attrs[:hl_trackers][ii][:last_update] = ats
+        s.attrs[:qt_trackers][ii][:price_momentum] = :bullish
+        s.attrs[:qt_trackers][ii][:last_update] = ats
         
         # Test validation
-        validate_trend_signals!(s, ai, ats)
+        validate_trend_signals!(s, ii, ats)
         
         @test haskey(s.attrs, :trend_validation)
-        @test haskey(s.attrs[:trend_validation], ai)
+        @test haskey(s.attrs[:trend_validation], ii)
         
-        validation = s.attrs[:trend_validation][ai]
+        validation = s.attrs[:trend_validation][ii]
         @test haskey(validation, :validation_history)
         @test haskey(validation, :signal_reliability)
         @test haskey(validation, :last_validation)
@@ -641,9 +642,9 @@ const CircularBuffer = MockCircularBuffer
         @test last_validation[3] == "OK"  # No errors
         
         # Test inconsistent signals
-        s.attrs[:hl_trackers][ai][:trend_direction] = :down  # Inconsistent with bullish overall
+        s.attrs[:hl_trackers][ii][:trend_direction] = :down  # Inconsistent with bullish overall
         
-        validate_trend_signals!(s, ai, ats + Minute(1))
+        validate_trend_signals!(s, ii, ats + Minute(1))
         
         @test length(validation[:validation_history]) >= 2
         inconsistent_validation = validation[:validation_history].data[end]
@@ -651,9 +652,9 @@ const CircularBuffer = MockCircularBuffer
         @test contains(inconsistent_validation[3], "Inconsistent")
         
         # Test stale data
-        s.attrs[:hl_trackers][ai][:last_update] = ats - Hour(2)  # Stale data
+        s.attrs[:hl_trackers][ii][:last_update] = ats - Hour(2)  # Stale data
         
-        validate_trend_signals!(s, ai, ats + Minute(2))
+        validate_trend_signals!(s, ii, ats + Minute(2))
         
         stale_validation = validation[:validation_history].data[end]
         @test stale_validation[2] == false  # Should be invalid
@@ -662,25 +663,25 @@ const CircularBuffer = MockCircularBuffer
     
     @testset "Summary and utility functions" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         ats = now()
         
         # Initialize with comprehensive trend data
-        track_trends!(s, ai, ats)
+        track_trends!(s, ii, ats)
         
         # Set up some trend data
-        s.attrs[:composite_trends][ai][:overall_trend] = :bullish
-        s.attrs[:composite_trends][ai][:trend_strength] = 0.75
-        s.attrs[:composite_trends][ai][:trend_confidence] = 0.8
-        s.attrs[:hl_trackers][ai][:support_level] = 49000.0
-        s.attrs[:hl_trackers][ai][:resistance_level] = 51000.0
-        s.attrs[:qt_trackers][ai][:momentum] = 0.03
-        s.attrs[:qt_trackers][ai][:volatility] = 0.025
+        s.attrs[:composite_trends][ii][:overall_trend] = :bullish
+        s.attrs[:composite_trends][ii][:trend_strength] = 0.75
+        s.attrs[:composite_trends][ii][:trend_confidence] = 0.8
+        s.attrs[:hl_trackers][ii][:support_level] = 49000.0
+        s.attrs[:hl_trackers][ii][:resistance_level] = 51000.0
+        s.attrs[:qt_trackers][ii][:momentum] = 0.03
+        s.attrs[:qt_trackers][ii][:volatility] = 0.025
         
         # Test get_trend_summary
-        summary = get_trend_summary(s, ai)
+        summary = get_trend_summary(s, ii)
         
-        @test summary[:asset] == ai
+        @test summary[:asset] == ii
         @test summary[:overall_trend] == :bullish
         @test summary[:trend_strength] == 0.75
         @test summary[:trend_confidence] == 0.8
@@ -697,37 +698,37 @@ const CircularBuffer = MockCircularBuffer
         
         # Test get_breakout_signals
         # Add some breakout signals
-        breakout_signals = s.attrs[:hl_trackers][ai][:breakout_signals]
+        breakout_signals = s.attrs[:hl_trackers][ii][:breakout_signals]
         push!(breakout_signals, (ats - Minute(5), :resistance_break, 51200.0))
         push!(breakout_signals, (ats - Minute(3), :support_break, 48800.0))
         push!(breakout_signals, (ats - Minute(1), :resistance_break, 51500.0))
         
-        signals = get_breakout_signals(s, ai; limit=2)
+        signals = get_breakout_signals(s, ii; limit=2)
         
         @test length(signals) == 2  # Should respect limit
         @test signals[1][:type] == :resistance_break
         @test signals[1][:price] == 51500.0  # Most recent first
-        @test signals[1][:asset] == ai
+        @test signals[1][:asset] == ii
         @test signals[2][:type] == :support_break
         @test signals[2][:price] == 48800.0
         
         # Test with no breakout signals
         s_no_signals = MockStrategy()
-        init_hl_tracking!(s_no_signals, ai)
+        init_hl_tracking!(s_no_signals, ii)
         
-        no_signals = get_breakout_signals(s_no_signals, ai)
+        no_signals = get_breakout_signals(s_no_signals, ii)
         @test isempty(no_signals)
     end
     
     @testset "Error handling and edge cases" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         ats = now()
         
         # Test tracking with no OHLCV data
-        trackhl!(s, ai, ats)  # Should not crash
-        trackqt!(s, ai, ats)  # Should not crash
-        track_trends!(s, ai, ats)  # Should not crash
+        trackhl!(s, ii, ats)  # Should not crash
+        trackqt!(s, ii, ats)  # Should not crash
+        track_trends!(s, ii, ats)  # Should not crash
         
         # Should initialize structures even without data
         @test haskey(s.attrs, :extremas)
@@ -738,16 +739,16 @@ const CircularBuffer = MockCircularBuffer
         s_empty = MockStrategy()
         
         # Should handle missing structures gracefully
-        update_composite_trend!(s_empty, ai, ats)
-        validate_trend_signals!(s_empty, ai, ats)
+        update_composite_trend!(s_empty, ii, ats)
+        validate_trend_signals!(s_empty, ii, ats)
         
         @test haskey(s_empty.attrs, :composite_trends)
         @test haskey(s_empty.attrs, :trend_validation)
         
         # Test get_trend_summary with missing data
-        summary_empty = get_trend_summary(s_empty, ai)
+        summary_empty = get_trend_summary(s_empty, ii)
         
-        @test summary_empty[:asset] == ai
+        @test summary_empty[:asset] == ii
         @test summary_empty[:overall_trend] == :neutral  # Default value
         @test summary_empty[:trend_strength] == 0.0      # Default value
         @test summary_empty[:support_level] == 0.0       # Default value
@@ -755,31 +756,31 @@ const CircularBuffer = MockCircularBuffer
         # Test with corrupted data structures
         s_corrupt = MockStrategy()
         s_corrupt.attrs[:hl_trackers] = "invalid_structure"
-        s_corrupt.attrs[:qt_trackers] = Dict(ai => "invalid_tracker")
+        s_corrupt.attrs[:qt_trackers] = Dict(ii => "invalid_tracker")
         
         # Should handle gracefully
-        update_composite_trend!(s_corrupt, ai, ats)
-        validate_trend_signals!(s_corrupt, ai, ats)
+        update_composite_trend!(s_corrupt, ii, ats)
+        validate_trend_signals!(s_corrupt, ii, ats)
         
-        summary_corrupt = get_trend_summary(s_corrupt, ai)
-        @test summary_corrupt[:asset] == ai  # Should still return basic info
+        summary_corrupt = get_trend_summary(s_corrupt, ii)
+        @test summary_corrupt[:asset] == ii  # Should still return basic info
     end
     
     @testset "Integration with update_asset_tracking!" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         ats = now()
         
         # Mock the PnL tracking function
-        trackpnl!(s::MockStrategy, ai::MockAssetInstance, ats::DateTime) = begin
+        trackpnl!(s::MockStrategy, ii::MockInstrumentInstance, ats::DateTime) = begin
             if !haskey(s.attrs, :pnl_tracked)
                 s.attrs[:pnl_tracked] = Dict()
             end
-            s.attrs[:pnl_tracked][ai] = ats
+            s.attrs[:pnl_tracked][ii] = ats
         end
         
         # Test comprehensive asset tracking
-        update_asset_tracking!(s, ai, ats)
+        update_asset_tracking!(s, ii, ats)
         
         # Should have called all tracking functions
         @test haskey(s.attrs, :extremas)          # From trend tracking
@@ -788,9 +789,9 @@ const CircularBuffer = MockCircularBuffer
         @test haskey(s.attrs, :position_tracking) # From position tracking
         @test haskey(s.attrs, :signal_tracking)   # From signal tracking
         
-        @test s.attrs[:pnl_tracked][ai] == ats
-        @test s.attrs[:position_tracking][ai][:last_update] == ats
-        @test s.attrs[:signal_tracking][ai][:last_update] == ats
+        @test s.attrs[:pnl_tracked][ii] == ats
+        @test s.attrs[:position_tracking][ii][:last_update] == ats
+        @test s.attrs[:signal_tracking][ii][:last_update] == ats
     end
 end
 

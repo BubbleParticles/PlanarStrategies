@@ -1,6 +1,7 @@
 # Integration tests for StrategyFramework key functions
 using Test
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 
 # Test that we can load the StrategyFramework module
 framework_loaded = false
@@ -132,7 +133,7 @@ end
             
             # Test that configuration types exist
             @test isdefined(StrategyFramework, :ExchangeConfig)
-            @test isdefined(StrategyFramework, :AssetUniverseConfig)
+            @test isdefined(StrategyFramework, :InstrumentUniverseConfig)
             @test isdefined(StrategyFramework, :MarketDataConfig)
             
             println("✓ Integration utilities available")

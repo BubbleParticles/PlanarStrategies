@@ -1,6 +1,7 @@
 # Test strategy lifecycle callbacks
 using Test
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 
 # Simple tests for callback system functionality
 @testset "Strategy Callback Tests" begin

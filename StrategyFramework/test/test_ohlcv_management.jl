@@ -1,6 +1,7 @@
 # Tests for OHLCV data management
 using Test
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 
 # Mock Planar types and functions for testing
 struct MockStrategy
@@ -9,11 +10,11 @@ struct MockStrategy
     MockStrategy() = new(Dict{Symbol, Any}())
 end
 
-struct MockAssetInstance
+struct MockInstrumentInstance
     asset::String
     exchange::Symbol
     
-    MockAssetInstance(asset::String, exchange::Symbol = :phemex) = new(asset, exchange)
+    MockInstrumentInstance(asset::String, exchange::Symbol = :phemex) = new(asset, exchange)
 end
 
 struct MockOHLCVData
@@ -46,11 +47,11 @@ const OHLCV_METHOD = Ref(:ccxt)
 
 get_current_assets() = ["BTC/USDT", "ETH/USDT", "ADA/USDT"]
 islive(s::MockStrategy) = get(s.attrs, :live_mode, false)
-AssetInstance(asset_str::String, exchange::Symbol) = MockAssetInstance(asset_str, exchange)
+InstrumentInstance(asset_str::String, exchange::Symbol) = MockInstrumentInstance(asset_str, exchange)
 
 # Mock OHLCV functions
-ohlcv(ai::MockAssetInstance, tf::Symbol) = MockOHLCVData(100)
-fetch_ohlcv(ai::MockAssetInstance, tf::Symbol, start_time::DateTime, end_time::DateTime) = MockOHLCVData(50)
+ohlcv(ii::MockInstrumentInstance, tf::Symbol) = MockOHLCVData(100)
+fetch_ohlcv(ii::MockInstrumentInstance, tf::Symbol, start_time::DateTime, end_time::DateTime) = MockOHLCVData(50)
 
 # Mock data structures for testing
 Base.isempty(data::MockOHLCVData) = length(data.timestamps) == 0
@@ -90,9 +91,9 @@ include("../src/data/ohlcv_management.jl")
         # Should have data for configured assets
         assets = get_current_assets()
         for asset_str in assets
-            ai = MockAssetInstance(asset_str, :phemex)
-            @test haskey(s.attrs[:ohlcv_data], ai)
-            @test s.attrs[:ohlcv_data][ai] isa MockOHLCVData
+            ii = MockInstrumentInstance(asset_str, :phemex)
+            @test haskey(s.attrs[:ohlcv_data], ii)
+            @test s.attrs[:ohlcv_data][ii] isa MockOHLCVData
         end
         
         # Test with live mode (should setup watchers)
@@ -107,38 +108,38 @@ include("../src/data/ohlcv_management.jl")
     
     @testset "init_asset_ohlcv! function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         
         # Test CCXT method
-        init_asset_ohlcv!(s, ai, :ccxt)
+        init_asset_ohlcv!(s, ii, :ccxt)
         
         @test haskey(s.attrs, :ohlcv_data)
-        @test haskey(s.attrs[:ohlcv_data], ai)
-        @test s.attrs[:ohlcv_data][ai] isa MockOHLCVData
-        @test length(s.attrs[:ohlcv_data][ai]) == 100
+        @test haskey(s.attrs[:ohlcv_data], ii)
+        @test s.attrs[:ohlcv_data][ii] isa MockOHLCVData
+        @test length(s.attrs[:ohlcv_data][ii]) == 100
         
         # Test fetch method
         s_fetch = MockStrategy()
         s_fetch.attrs[:ohlcv_lookback] = 200
         
-        init_asset_ohlcv!(s_fetch, ai, :fetch)
+        init_asset_ohlcv!(s_fetch, ii, :fetch)
         
         @test haskey(s_fetch.attrs, :ohlcv_data)
-        @test haskey(s_fetch.attrs[:ohlcv_data], ai)
-        @test s_fetch.attrs[:ohlcv_data][ai] isa MockOHLCVData
-        @test length(s_fetch.attrs[:ohlcv_data][ai]) == 50  # fetch_ohlcv returns 50
+        @test haskey(s_fetch.attrs[:ohlcv_data], ii)
+        @test s_fetch.attrs[:ohlcv_data][ii] isa MockOHLCVData
+        @test length(s_fetch.attrs[:ohlcv_data][ii]) == 50  # fetch_ohlcv returns 50
         
         # Test unknown method
         s_unknown = MockStrategy()
-        init_asset_ohlcv!(s_unknown, ai, :unknown_method)
+        init_asset_ohlcv!(s_unknown, ii, :unknown_method)
         
         # Should not crash, but may not have data
-        @test !haskey(s_unknown.attrs, :ohlcv_data) || !haskey(get(s_unknown.attrs, :ohlcv_data, Dict()), ai)
+        @test !haskey(s_unknown.attrs, :ohlcv_data) || !haskey(get(s_unknown.attrs, :ohlcv_data, Dict()), ii)
     end
     
     @testset "validate_asset_availability function" begin
         # Test valid asset
-        ai_valid = MockAssetInstance("BTC/USDT", :phemex)
+        ai_valid = MockInstrumentInstance("BTC/USDT", :phemex)
         @test validate_asset_availability(ai_valid) == true
         
         # Test asset with missing fields (would need to mock this scenario)
@@ -148,29 +149,29 @@ include("../src/data/ohlcv_management.jl")
     
     @testset "validate_initial_ohlcv! function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         
         # Test with no data
-        result_no_data = validate_initial_ohlcv!(s, ai)
+        result_no_data = validate_initial_ohlcv!(s, ii)
         @test result_no_data == false
         
         # Test with valid data
-        s.attrs[:ohlcv_data] = Dict(ai => MockOHLCVData(100))
-        result_valid = validate_initial_ohlcv!(s, ai)
+        s.attrs[:ohlcv_data] = Dict(ii => MockOHLCVData(100))
+        result_valid = validate_initial_ohlcv!(s, ii)
         @test result_valid == true
         
         # Test with empty data
-        s.attrs[:ohlcv_data][ai] = MockOHLCVData(0)
-        result_empty = validate_initial_ohlcv!(s, ai)
+        s.attrs[:ohlcv_data][ii] = MockOHLCVData(0)
+        result_empty = validate_initial_ohlcv!(s, ii)
         @test result_empty == false
     end
     
     @testset "check_ohlcv_freshness function" begin
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         
         # Test with fresh data
         fresh_data = MockOHLCVData(10)  # Recent data
-        @test check_ohlcv_freshness(fresh_data, ai) == true
+        @test check_ohlcv_freshness(fresh_data, ii) == true
         
         # Test with stale data
         stale_data = MockOHLCVData(0)
@@ -178,39 +179,39 @@ include("../src/data/ohlcv_management.jl")
         stale_data.timestamps = [now() - Hour(2)]
         stale_data.close = [50000.0]
         
-        @test check_ohlcv_freshness(stale_data, ai; max_age=Minute(30)) == false
+        @test check_ohlcv_freshness(stale_data, ii; max_age=Minute(30)) == false
         
         # Test with empty data
         empty_data = MockOHLCVData(0)
-        @test check_ohlcv_freshness(empty_data, ai) == false
+        @test check_ohlcv_freshness(empty_data, ii) == false
         
         # Test with custom max_age
         recent_data = MockOHLCVData(1)
         recent_data.timestamps = [now() - Minute(10)]
         recent_data.close = [50000.0]
         
-        @test check_ohlcv_freshness(recent_data, ai; max_age=Minute(15)) == true
-        @test check_ohlcv_freshness(recent_data, ai; max_age=Minute(5)) == false
+        @test check_ohlcv_freshness(recent_data, ii; max_age=Minute(15)) == true
+        @test check_ohlcv_freshness(recent_data, ii; max_age=Minute(5)) == false
     end
     
     @testset "check_ohlcv_continuity function" begin
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         
         # Test with sufficient data
         good_data = MockOHLCVData(50)
-        @test check_ohlcv_continuity(good_data, ai) == true
+        @test check_ohlcv_continuity(good_data, ii) == true
         
         # Test with insufficient data
         small_data = MockOHLCVData(5)
-        @test check_ohlcv_continuity(small_data, ai) == true  # Still passes with small data
+        @test check_ohlcv_continuity(small_data, ii) == true  # Still passes with small data
         
         # Test with single data point
         single_data = MockOHLCVData(1)
-        @test check_ohlcv_continuity(single_data, ai) == true
+        @test check_ohlcv_continuity(single_data, ii) == true
         
         # Test with empty data
         empty_data = MockOHLCVData(0)
-        @test check_ohlcv_continuity(empty_data, ai) == true  # Empty data passes continuity
+        @test check_ohlcv_continuity(empty_data, ii) == true  # Empty data passes continuity
     end
     
     @testset "Data watcher functions" begin
@@ -226,10 +227,10 @@ include("../src/data/ohlcv_management.jl")
         
         # Check individual watchers
         for asset_str in assets
-            ai = MockAssetInstance(asset_str, :phemex)
-            @test haskey(s.attrs[:data_watchers], ai)
+            ii = MockInstrumentInstance(asset_str, :phemex)
+            @test haskey(s.attrs[:data_watchers], ii)
             
-            watcher = s.attrs[:data_watchers][ai]
+            watcher = s.attrs[:data_watchers][ii]
             @test haskey(watcher, :asset)
             @test haskey(watcher, :timeframe)
             @test haskey(watcher, :started_at)
@@ -239,7 +240,7 @@ include("../src/data/ohlcv_management.jl")
         
         # Test setup_asset_watcher!
         s_single = MockStrategy()
-        ai_single = MockAssetInstance("DOT/USDT", :phemex)
+        ai_single = MockInstrumentInstance("DOT/USDT", :phemex)
         
         setup_asset_watcher!(s_single, ai_single)
         
@@ -251,7 +252,7 @@ include("../src/data/ohlcv_management.jl")
         cleanup_data_watchers!(s)
         
         # Watchers should be stopped and cleared
-        for (ai, watcher) in s.attrs[:data_watchers]
+        for (ii, watcher) in s.attrs[:data_watchers]
             @test watcher[:status] == :stopped
         end
         
@@ -273,44 +274,44 @@ include("../src/data/ohlcv_management.jl")
         @test s.attrs[:data_validation_history] isa Dict
         
         # Test update_ohlcv_timestamp!
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         test_time = now()
         
-        update_ohlcv_timestamp!(s, ai, test_time)
+        update_ohlcv_timestamp!(s, ii, test_time)
         
-        @test haskey(s.attrs[:ohlcv_last_update], ai)
-        @test s.attrs[:ohlcv_last_update][ai] == test_time
+        @test haskey(s.attrs[:ohlcv_last_update], ii)
+        @test s.attrs[:ohlcv_last_update][ii] == test_time
         
         # Test get_ohlcv_staleness
-        staleness = get_ohlcv_staleness(s, ai)
+        staleness = get_ohlcv_staleness(s, ii)
         @test staleness isa Period
         @test staleness >= Second(0)
         
         # Test with no data
-        ai_no_data = MockAssetInstance("ETH/USDT", :phemex)
+        ai_no_data = MockInstrumentInstance("ETH/USDT", :phemex)
         staleness_no_data = get_ohlcv_staleness(s, ai_no_data)
         @test staleness_no_data === nothing
         
         # Test is_ohlcv_stale
-        @test is_ohlcv_stale(s, ai) == false  # Just updated
+        @test is_ohlcv_stale(s, ii) == false  # Just updated
         @test is_ohlcv_stale(s, ai_no_data) == true  # No data
         
         # Test with old timestamp
         old_time = now() - Hour(2)
-        update_ohlcv_timestamp!(s, ai, old_time)
-        @test is_ohlcv_stale(s, ai; max_age=Minute(30)) == true
-        @test is_ohlcv_stale(s, ai; max_age=Hour(3)) == false
+        update_ohlcv_timestamp!(s, ii, old_time)
+        @test is_ohlcv_stale(s, ii; max_age=Minute(30)) == true
+        @test is_ohlcv_stale(s, ii; max_age=Hour(3)) == false
     end
     
     @testset "validate_ohlcv_data function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         
         # Initialize tracking
         init_data_tracking!(s)
         
         # Test validation with no data
-        result_no_data = validate_ohlcv_data(s, ai)
+        result_no_data = validate_ohlcv_data(s, ii)
         
         @test haskey(result_no_data, :timestamp)
         @test haskey(result_no_data, :asset)
@@ -318,16 +319,16 @@ include("../src/data/ohlcv_management.jl")
         @test haskey(result_no_data, :checks)
         @test haskey(result_no_data, :errors)
         
-        @test result_no_data[:asset] == ai
+        @test result_no_data[:asset] == ii
         @test result_no_data[:is_valid] == false
         @test result_no_data[:checks][:availability] == false
         @test "No OHLCV data available" in result_no_data[:errors]
         
         # Test validation with valid data
-        s.attrs[:ohlcv_data] = Dict(ai => MockOHLCVData(100))
-        update_ohlcv_timestamp!(s, ai, now())
+        s.attrs[:ohlcv_data] = Dict(ii => MockOHLCVData(100))
+        update_ohlcv_timestamp!(s, ii, now())
         
-        result_valid = validate_ohlcv_data(s, ai)
+        result_valid = validate_ohlcv_data(s, ii)
         
         @test result_valid[:is_valid] == true
         @test result_valid[:checks][:availability] == true
@@ -336,24 +337,24 @@ include("../src/data/ohlcv_management.jl")
         @test isempty(result_valid[:errors])
         
         # Test validation with stale data
-        update_ohlcv_timestamp!(s, ai, now() - Hour(2))
+        update_ohlcv_timestamp!(s, ii, now() - Hour(2))
         
-        result_stale = validate_ohlcv_data(s, ai)
+        result_stale = validate_ohlcv_data(s, ii)
         
         @test result_stale[:is_valid] == false
         @test result_stale[:checks][:freshness] == false
         @test "OHLCV data is stale" in result_stale[:errors]
         
         # Check validation history
-        @test haskey(s.attrs[:data_validation_history], ai)
-        @test length(s.attrs[:data_validation_history][ai]) >= 2  # At least 2 validations
+        @test haskey(s.attrs[:data_validation_history], ii)
+        @test length(s.attrs[:data_validation_history][ii]) >= 2  # At least 2 validations
         
         # Test validation history limit
         for i in 1:150  # Add many validation results
-            validate_ohlcv_data(s, ai)
+            validate_ohlcv_data(s, ii)
         end
         
-        @test length(s.attrs[:data_validation_history][ai]) <= 100  # Should be limited to 100
+        @test length(s.attrs[:data_validation_history][ii]) <= 100  # Should be limited to 100
     end
     
     @testset "Integration and error handling" begin
@@ -382,7 +383,7 @@ include("../src/data/ohlcv_management.jl")
         
         # Test error handling in asset initialization
         s_error = MockStrategy()
-        ai_error = MockAssetInstance("INVALID/PAIR", :invalid_exchange)
+        ai_error = MockInstrumentInstance("INVALID/PAIR", :invalid_exchange)
         
         # Should handle errors gracefully
         try
@@ -401,7 +402,7 @@ include("../src/data/ohlcv_management.jl")
         s_corrupt = MockStrategy()
         s_corrupt.attrs[:ohlcv_data] = "invalid_data_structure"
         
-        result_corrupt = validate_ohlcv_data(s_corrupt, ai)
+        result_corrupt = validate_ohlcv_data(s_corrupt, ii)
         @test result_corrupt[:is_valid] == false
         @test !isempty(result_corrupt[:errors])
     end
@@ -411,33 +412,33 @@ include("../src/data/ohlcv_management.jl")
         s_1h = MockStrategy()
         s_1h.attrs[:timeframe] = :tf_1h
         
-        ai = MockAssetInstance("BTC/USDT", :phemex)
-        init_asset_ohlcv!(s_1h, ai, :ccxt)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
+        init_asset_ohlcv!(s_1h, ii, :ccxt)
         
         @test haskey(s_1h.attrs, :ohlcv_data)
-        @test haskey(s_1h.attrs[:ohlcv_data], ai)
+        @test haskey(s_1h.attrs[:ohlcv_data], ii)
         
         # Test with custom lookback period
         s_custom_lookback = MockStrategy()
         s_custom_lookback.attrs[:ohlcv_lookback] = 2000
         
-        init_asset_ohlcv!(s_custom_lookback, ai, :fetch)
+        init_asset_ohlcv!(s_custom_lookback, ii, :fetch)
         
         @test haskey(s_custom_lookback.attrs, :ohlcv_data)
-        @test haskey(s_custom_lookback.attrs[:ohlcv_data], ai)
+        @test haskey(s_custom_lookback.attrs[:ohlcv_data], ii)
         
         # Test freshness with custom max_age
         fresh_data = MockOHLCVData(10)
-        @test check_ohlcv_freshness(fresh_data, ai; max_age=Second(30)) == true
-        @test check_ohlcv_freshness(fresh_data, ai; max_age=Microsecond(1)) == false
+        @test check_ohlcv_freshness(fresh_data, ii; max_age=Second(30)) == true
+        @test check_ohlcv_freshness(fresh_data, ii; max_age=Microsecond(1)) == false
         
         # Test staleness checking with custom parameters
         s_staleness = MockStrategy()
         init_data_tracking!(s_staleness)
-        update_ohlcv_timestamp!(s_staleness, ai, now() - Minute(10))
+        update_ohlcv_timestamp!(s_staleness, ii, now() - Minute(10))
         
-        @test is_ohlcv_stale(s_staleness, ai; max_age=Minute(5)) == true
-        @test is_ohlcv_stale(s_staleness, ai; max_age=Minute(15)) == false
+        @test is_ohlcv_stale(s_staleness, ii; max_age=Minute(5)) == true
+        @test is_ohlcv_stale(s_staleness, ii; max_age=Minute(15)) == false
     end
 end
 

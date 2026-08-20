@@ -2,7 +2,8 @@
 using Test
 using StrategyFramework
 using TOML
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 
 @testset "Configuration Management Tests" begin
     

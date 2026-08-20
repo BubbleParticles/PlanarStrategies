@@ -7,14 +7,15 @@ asset universe management, and market data source configuration utilities.
 
 # Import from parent module when included
 # using ..StrategyFramework: SC, StrategyConfig
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 using Logging
 
 # Import Planar modules for exchange and asset management
 using Planar
 using Planar.Exchanges
-using Planar.Engine.Instances: AssetInstance
-using Planar.Engine.Collections: AssetCollection
+using Planar.Engine.Instances: InstrumentInstance
+using Planar.Engine.Collections: InstrumentCollection
 using Planar.Engine.Misc: Config
 
 # Import now from TimeTicks to avoid ambiguity with Dates.now
@@ -62,13 +63,13 @@ API endpoints, and connection parameters.
 end
 
 """
-    AssetUniverseConfig
+    InstrumentUniverseConfig
 
 Configuration for managing the asset universe including filtering,
 selection criteria, and dynamic management settings.
 """
-@kwdef mutable struct AssetUniverseConfig
-    # Asset selection criteria
+@kwdef mutable struct InstrumentUniverseConfig
+    # Instrument selection criteria
     min_volume_24h::Float64 = 1_000_000.0  # Minimum 24h volume in USD
     min_price::Float64 = 0.0001  # Minimum price filter
     max_price::Float64 = 1_000_000.0  # Maximum price filter
@@ -76,7 +77,7 @@ selection criteria, and dynamic management settings.
     # Quote currencies to include
     quote_currencies::Vector{String} = ["USDT", "USDC", "USD"]
     
-    # Asset filtering
+    # Instrument filtering
     exclude_patterns::Vector{String} = [".*UP.*", ".*DOWN.*", ".*BEAR.*", ".*BULL.*"]
     include_patterns::Vector{String} = String[]  # Empty means include all (after exclusions)
     
@@ -123,7 +124,7 @@ end
 
 # Global configuration storage
 const EXCHANGE_CONFIGS = Dict{Symbol, ExchangeConfig}()
-const UNIVERSE_CONFIGS = Dict{Symbol, AssetUniverseConfig}()
+const UNIVERSE_CONFIGS = Dict{Symbol, InstrumentUniverseConfig}()
 const MARKET_DATA_CONFIGS = Dict{Symbol, MarketDataConfig}()
 
 # Rate limiting state
@@ -194,13 +195,13 @@ function setup_exchange!(s::SC, exchange_id::Symbol; kwargs...)
 end
 
 """
-    configure_asset_universe!(universe_id::Symbol, config::AssetUniverseConfig)
+    configure_asset_universe!(universe_id::Symbol, config::InstrumentUniverseConfig)
 
 Configure asset universe settings.
 """
-function configure_asset_universe!(universe_id::Symbol, config::AssetUniverseConfig)
+function configure_asset_universe!(universe_id::Symbol, config::InstrumentUniverseConfig)
     UNIVERSE_CONFIGS[universe_id] = config
-    @info "StrategyFramework: Asset universe configured" universe_id max_assets=config.max_assets min_volume=config.min_volume_24h
+    @info "StrategyFramework: Instrument universe configured" universe_id max_assets=config.max_assets min_volume=config.min_volume_24h
     return config
 end
 
@@ -210,7 +211,7 @@ end
 Get the asset universe configuration.
 """
 function get_universe_config(universe_id::Symbol)
-    get(UNIVERSE_CONFIGS, universe_id, AssetUniverseConfig())
+    get(UNIVERSE_CONFIGS, universe_id, InstrumentUniverseConfig())
 end
 
 """
@@ -226,14 +227,14 @@ function create_asset_universe(s::SC, assets::Vector{String}; universe_id::Symbo
         filtered_assets = _filter_assets(assets, config)
         
         # Create asset collection
-        universe = AssetCollection(
+        universe = InstrumentCollection(
             filtered_assets;
             exc=exchange(s),
             load_data=false,
             timeframe=s.timeframe
         )
         
-        @info "StrategyFramework: Asset universe created" universe_id asset_count=length(filtered_assets)
+        @info "StrategyFramework: Instrument universe created" universe_id asset_count=length(filtered_assets)
         return universe
         
     catch e
@@ -255,7 +256,7 @@ function update_asset_universe!(s::SC, new_assets::Vector{String})
         # Update strategy universe (this is experimental in Planar)
         s.universe = new_universe
         
-        @info "StrategyFramework: Asset universe updated" new_count=length(new_assets)
+        @info "StrategyFramework: Instrument universe updated" new_count=length(new_assets)
         return true
         
     catch e
@@ -383,7 +384,7 @@ function _setup_exchange_rate_limiting!(exchange, config::ExchangeConfig)
     @debug "StrategyFramework: Rate limiting configured" requests_per_second=config.requests_per_second
 end
 
-function _filter_assets(assets::Vector{String}, config::AssetUniverseConfig)
+function _filter_assets(assets::Vector{String}, config::InstrumentUniverseConfig)
     filtered = String[]
     
     for asset in assets
@@ -470,7 +471,7 @@ function __init_exchange_management__()
     ))
     
     # Setup default universe configuration
-    configure_asset_universe!(:default, AssetUniverseConfig(
+    configure_asset_universe!(:default, InstrumentUniverseConfig(
         min_volume_24h=1_000_000.0,
         quote_currencies=["USDT", "USDC"],
         max_assets=20

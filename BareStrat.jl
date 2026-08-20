@@ -5,7 +5,7 @@ using .st
 using .st.ExchangeTypes
 
 using .st.TimeTicks
-using .st: AssetCollection
+using .st: InstrumentCollection
 import .st: call!
 using .st.Misc: Sim, NoMargin, Paper
 using .st.Instances: ByPos, BySide, Isolated, Long, Short, cash, posside, position
@@ -24,31 +24,31 @@ function call!(s::S, ::ResetStrategy) end
 call!(_::S, ::WarmupPeriod) = Day(1)
 
 function ordertp(
-    ai, ::BySide{O}=ifelse(P == Long, Buy, Sell), ::ByPos{P}=posside(ai)
+    ii, ::BySide{O}=ifelse(P == Long, Buy, Sell), ::ByPos{P}=posside(ii)
 ) where {O,P}
     ifelse(P == Long, MarketOrder{O}, ShortMarketOrder{O})
 end
 
 function call!(s::T, ts::DateTime, ctx) where {T<:SC}
     date = ts
-    foreach(s.universe) do ai
+    foreach(s.universe) do ii
         oside = rand((Buy, Sell))
         pside = rand((Long, Short))
-        tp = ordertp(ai, oside, pside)
-        if isopen(ai)
-            if posside(ai) == pside
-                tp = ordertp(ai, oside, pside)
-                call!(s, ai, tp; amount=float(ai) / 3, date)
+        tp = ordertp(ii, oside, pside)
+        if isopen(ii)
+            if posside(ii) == pside
+                tp = ordertp(ii, oside, pside)
+                call!(s, ii, tp; amount=float(ii) / 3, date)
             elseif ismargin(s)
-                this_pos = position(ai)
+                this_pos = position(ii)
                 this_side = posside(this_pos)
                 while isopen(this_pos)
-                    call!(s, ai, this_side, date, PositionClose())
+                    call!(s, ii, this_side, date, PositionClose())
                 end
-                call!(s, ai, tp; amount=ai.limits.amount.min, date)
+                call!(s, ii, tp; amount=ii.limits.amount.min, date)
             end
-        elseif cash(s) > ai.limits.cost.min
-            call!(s, ai, tp; amount=ai.limits.amount.min, date)
+        elseif cash(s) > ii.limits.cost.min
+            call!(s, ii, tp; amount=ii.limits.amount.min, date)
         end
     end
 end

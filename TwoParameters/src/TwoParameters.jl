@@ -7,7 +7,7 @@ const TF = tf"15m"
 @strategyenv!
 using OnlineTechnicalIndicators: RSI, EMA, fit!
 
-SignalD = Dict{inst.AssetInstance,Union{Type{Buy},Type{Sell},Nothing}}
+SignalD = Dict{inst.InstrumentInstance,Union{Type{Buy},Type{Sell},Nothing}}
 
 function indicators!(s, args...; timeframe=tf"15m")
     for (n, func) in s[:params]
@@ -36,9 +36,9 @@ end
 function call!(s::SC, ts::DateTime, _)
     ats = available(s.timeframe, ts)
     signals = s[:signals]
-    foreach(s.universe) do ai
-        indicators!(s, ai, UpdateData())
-        signals[ai] = signal(s, ai, ats)
+    foreach(s.universe) do ii
+        indicators!(s, ii, UpdateData())
+        signals[ii] = signal(s, ii, ats)
     end
     action = resolve(signals)
     if isnothing(action)
@@ -60,8 +60,8 @@ function call!(::Type{<:SC}, ::StrategyMarkets)
     String["BTC/USDT", "ETH/USDT"]
 end
 
-function signal(s, ai, ats)
-    data = ohlcv(ai, tf"15m")
+function signal(s, ii, ats)
+    data = ohlcv(ii, tf"15m")
     idx = dateindex(data, ats)
     ind_ema_short = data.ind_ema20[idx]
     ind_ema_long = data.ind_ema40[idx]

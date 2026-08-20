@@ -39,17 +39,17 @@ end
 
 function call!(s::T, ts::DateTime, _) where {T<:SC}
     date = ts
-    foreach(s.universe) do ai
-        closepair(s, ai, ai.ats, ind_timeframe(s))
-        price = float(ai)
-        this_close = _thisclose(ai)
-        prev_close = _prevclose(ai)
+    foreach(s.universe) do ii
+        closepair(s, ii, ii.ats, ind_timeframe(s))
+        price = float(ii)
+        this_close = _thisclose(ii)
+        prev_close = _prevclose(ii)
         if isnothing(prev_close) || !iszero(prev_close)
-            isbuy(s, ai, ai.ats) && buy!(s, ai, ai.ats, date)
-            issell(s, ai, ai.ats) && sell!(s, ai, ai.ats, date)
-            _prevclose!(ai, this_close)
+            isbuy(s, ii, ii.ats) && buy!(s, ii, ii.ats, date)
+            issell(s, ii, ii.ats) && sell!(s, ii, ii.ats, date)
+            _prevclose!(ii, this_close)
         else
-            _prevclose!(ai, nothing)
+            _prevclose!(ii, nothing)
         end
     end
 end
@@ -62,42 +62,42 @@ function call!(::SC{ExchangeID{:bybit}}, ::StrategyMarkets)
     ["ETH/USDT", "BTC/USDT", "ATOM/USDT"]
 end
 
-function buy!(s, ai, ats, ts)
-    for (_ai, at) in ats
+function buy!(s, ii, ats, ts)
+    for (_ii, at) in ats
         if st.attr(at, :prev_sell, nothing) !== nothing
             st.attr(at, :prev_sell, nothing)
-            closepair(s, _ai, ats, ind_timeframe(s))
+            closepair(s, _ii, ats, ind_timeframe(s))
         end
     end
     buydiff = st.attr(s, :buydiff, 1.01)
-    val = float(ai) * buydiff
+    val = float(ii) * buydiff
     ot = select_ordertype(st.attr(s, :ordertype, :fok))
-    okwargs = select_orderkwargs(ot, Buy, ai, ats)
-    call!(s, ai, ot; amount=val / float(ai), date=ts, okwargs...)
+    okwargs = select_orderkwargs(ot, Buy, ii, ats)
+    call!(s, ii, ot; amount=val / float(ii), date=ts, okwargs...)
 end
 
-function sell!(s, ai, ats, ts)
+function sell!(s, ii, ats, ts)
     selldiff = st.attr(s, :selldiff, 1.005)
-    val = float(ai) * selldiff
+    val = float(ii) * selldiff
     ot = select_ordertype(st.attr(s, :ordertype, :fok))
-    okwargs = select_orderkwargs(ot, Sell, ai, ats)
-    call!(s, ai, ot; amount=val / float(ai), date=ts, okwargs...)
+    okwargs = select_orderkwargs(ot, Sell, ii, ats)
+    call!(s, ii, ot; amount=val / float(ii), date=ts, okwargs...)
 end
 
-function isbuy(s, ai, ats)
-    this_close = _thisclose(ai)
-    prev_close = _prevclose(ai)
+function isbuy(s, ii, ats)
+    this_close = _thisclose(ii)
+    prev_close = _prevclose(ii)
     this_close === nothing && return false
     prev_close === nothing && return false
-    prev_close < this_close && this_close > float(ai)
+    prev_close < this_close && this_close > float(ii)
 end
 
-function issell(s, ai, ats)
-    this_close = _thisclose(ai)
-    prev_close = _prevclose(ai)
+function issell(s, ii, ats)
+    this_close = _thisclose(ii)
+    prev_close = _prevclose(ii)
     this_close === nothing && return false
     prev_close === nothing && return false
-    prev_close > this_close && this_close < float(ai)
+    prev_close > this_close && this_close < float(ii)
 end
 
 ## Optimization

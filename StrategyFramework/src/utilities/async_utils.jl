@@ -1,7 +1,8 @@
 # Async utilities for StrategyFramework
 # Provides strategy-appropriate async operations, locking, and sleep utilities
 
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 
 """
     liveasync(f, s::SC)

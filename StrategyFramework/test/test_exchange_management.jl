@@ -1,18 +1,19 @@
 # Tests for exchange and asset management utilities
 using Test
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 
 # Mock Planar types and functions for testing
 struct MockStrategy
     attrs::Dict{Symbol, Any}
-    universe::Vector{MockAssetInstance}
+    universe::Vector{MockInstrumentInstance}
     timeframe::Symbol
     exchange_id::Symbol
     
-    MockStrategy(exchange_id=:phemex) = new(Dict{Symbol, Any}(), MockAssetInstance[], :tf_1m, exchange_id)
+    MockStrategy(exchange_id=:phemex) = new(Dict{Symbol, Any}(), MockInstrumentInstance[], :tf_1m, exchange_id)
 end
 
-struct MockAssetInstance
+struct MockInstrumentInstance
     symbol::String
 end
 
@@ -22,7 +23,7 @@ struct MockExchange
     account::String
 end
 
-struct MockAssetCollection
+struct MockInstrumentCollection
     assets::Vector{String}
     exchange::Symbol
     timeframe::Symbol
@@ -51,8 +52,8 @@ end
 
 # Mock functions
 exchange(s::MockStrategy) = MockExchange(s.exchange_id, false, "default")
-AssetCollection(assets::Vector{String}; exc, load_data=false, timeframe=:tf_1m) = 
-    MockAssetCollection(assets, exc.id, timeframe)
+InstrumentCollection(assets::Vector{String}; exc, load_data=false, timeframe=:tf_1m) = 
+    MockInstrumentCollection(assets, exc.id, timeframe)
 
 # Include the exchange management module for testing
 include("../src/integration/exchange_management.jl")
@@ -106,9 +107,9 @@ const Exchanges = MockExchanges
         @test config.sandbox == true
     end
     
-    @testset "AssetUniverseConfig structure" begin
+    @testset "InstrumentUniverseConfig structure" begin
         # Test default configuration
-        config = AssetUniverseConfig()
+        config = InstrumentUniverseConfig()
         
         @test config.min_volume_24h == 1_000_000.0
         @test config.min_price == 0.0001
@@ -123,7 +124,7 @@ const Exchanges = MockExchanges
         @test config.required_timeframes == ["1m", "5m", "1h"]
         
         # Test custom configuration
-        custom_config = AssetUniverseConfig(
+        custom_config = InstrumentUniverseConfig(
             min_volume_24h = 5_000_000.0,
             quote_currencies = ["USDT"],
             max_assets = 10,
@@ -223,9 +224,9 @@ const Exchanges = MockExchanges
         @test config.account == "test_account"
     end
     
-    @testset "Asset universe configuration" begin
+    @testset "Instrument universe configuration" begin
         # Test configure_asset_universe!
-        config = AssetUniverseConfig(
+        config = InstrumentUniverseConfig(
             min_volume_24h = 2_000_000.0,
             max_assets = 15,
             quote_currencies = ["USDT", "BUSD"]
@@ -242,7 +243,7 @@ const Exchanges = MockExchanges
         
         # Test get_universe_config for non-existent universe
         default_config = get_universe_config(:non_existent)
-        @test default_config isa AssetUniverseConfig
+        @test default_config isa InstrumentUniverseConfig
         @test default_config.min_volume_24h == 1_000_000.0  # Default value
     end
     
@@ -253,13 +254,13 @@ const Exchanges = MockExchanges
         assets = ["BTC/USDT", "ETH/USDT", "ADA/USDT"]
         universe = create_asset_universe(s, assets)
         
-        @test universe isa MockAssetCollection
+        @test universe isa MockInstrumentCollection
         @test universe.exchange == :phemex
         @test universe.timeframe == :tf_1m
         @test length(universe.assets) <= length(assets)  # May be filtered
         
         # Test with custom universe configuration
-        config = AssetUniverseConfig(
+        config = InstrumentUniverseConfig(
             max_assets = 2,
             quote_currencies = ["USDT"]
         )
@@ -287,7 +288,7 @@ const Exchanges = MockExchanges
         result = update_asset_universe!(s, new_assets)
         
         @test result == true
-        @test s.universe isa MockAssetCollection
+        @test s.universe isa MockInstrumentCollection
         @test s.universe.assets == new_assets || length(s.universe.assets) <= length(new_assets)
     end
     
@@ -384,7 +385,7 @@ const Exchanges = MockExchanges
     end
     
     @testset "_filter_assets helper function" begin
-        config = AssetUniverseConfig(
+        config = InstrumentUniverseConfig(
             exclude_patterns = [".*UP.*", ".*DOWN.*"],
             include_patterns = String[],
             quote_currencies = ["USDT"],
@@ -405,7 +406,7 @@ const Exchanges = MockExchanges
         @test length(filtered) <= 3
         
         # Test quote currency filtering
-        config_btc = AssetUniverseConfig(quote_currencies = ["BTC"])
+        config_btc = InstrumentUniverseConfig(quote_currencies = ["BTC"])
         assets_mixed = ["BTC/USDT", "ETH/BTC", "ADA/USDT", "DOT/BTC"]
         filtered_btc = _filter_assets(assets_mixed, config_btc)
         
@@ -415,7 +416,7 @@ const Exchanges = MockExchanges
         @test !("ADA/USDT" in filtered_btc)
         
         # Test inclusion patterns
-        config_include = AssetUniverseConfig(
+        config_include = InstrumentUniverseConfig(
             include_patterns = ["BTC.*", "ETH.*"],
             quote_currencies = ["USDT"]
         )
@@ -458,7 +459,7 @@ const Exchanges = MockExchanges
     @testset "Configuration persistence and retrieval" begin
         # Test that configurations persist across function calls
         exchange_config = ExchangeConfig(exchange_id = :persist_test, requests_per_second = 30.0)
-        universe_config = AssetUniverseConfig(max_assets = 25)
+        universe_config = InstrumentUniverseConfig(max_assets = 25)
         data_config = MarketDataConfig(primary_source = :test_source)
         
         configure_exchange!(:persist_test, exchange_config)
@@ -489,16 +490,16 @@ const Exchanges = MockExchanges
         
         # Test create_asset_universe with empty asset list
         empty_universe = create_asset_universe(s, String[])
-        @test empty_universe isa MockAssetCollection
+        @test empty_universe isa MockInstrumentCollection
         @test isempty(empty_universe.assets)
         
         # Test _filter_assets with empty input
-        config = AssetUniverseConfig()
+        config = InstrumentUniverseConfig()
         filtered_empty = _filter_assets(String[], config)
         @test isempty(filtered_empty)
         
         # Test _filter_assets with no matching assets
-        config_strict = AssetUniverseConfig(
+        config_strict = InstrumentUniverseConfig(
             quote_currencies = ["NONEXISTENT"],
             max_assets = 10
         )

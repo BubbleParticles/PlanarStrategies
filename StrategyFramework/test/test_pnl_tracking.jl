@@ -1,6 +1,7 @@
 # Tests for PnL tracking system
 using Test
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 using Statistics
 
 # Mock Planar types and functions for testing
@@ -10,11 +11,11 @@ struct MockStrategy
     MockStrategy() = new(Dict{Symbol, Any}())
 end
 
-struct MockAssetInstance
+struct MockInstrumentInstance
     symbol::String
     exchange::Symbol
     
-    MockAssetInstance(symbol::String, exchange::Symbol = :phemex) = new(symbol, exchange)
+    MockInstrumentInstance(symbol::String, exchange::Symbol = :phemex) = new(symbol, exchange)
 end
 
 struct MockCircularBuffer{T}
@@ -35,7 +36,7 @@ end
 # Mock functions and constants
 const WATCHER_EXC = Ref(:phemex)
 get_current_assets() = ["BTC/USDT", "ETH/USDT", "ADA/USDT"]
-AssetInstance(asset_str::String, exchange::Symbol) = MockAssetInstance(asset_str, exchange)
+InstrumentInstance(asset_str::String, exchange::Symbol) = MockInstrumentInstance(asset_str, exchange)
 
 # Mock CircularBuffer operations
 Base.push!(cb::MockCircularBuffer, item) = begin
@@ -61,15 +62,15 @@ const CircularBuffer = MockCircularBuffer
     
     @testset "trackpnl! for single asset" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         ats = now()
         
         # Mock position and price data
-        s.attrs[:positions] = Dict(ai => MockPosition(0.1, 50000.0))
-        s.attrs[:ohlcv_data] = Dict(ai => "mock_ohlcv")
+        s.attrs[:positions] = Dict(ii => MockPosition(0.1, 50000.0))
+        s.attrs[:ohlcv_data] = Dict(ii => "mock_ohlcv")
         
         # Test PnL tracking
-        trackpnl!(s, ai, ats)
+        trackpnl!(s, ii, ats)
         
         # Check that tracking structures were initialized
         @test haskey(s.attrs, :pnl_history)
@@ -78,13 +79,13 @@ const CircularBuffer = MockCircularBuffer
         @test haskey(s.attrs, :peak_cash)
         
         # Check asset-specific data
-        @test haskey(s.attrs[:pnl_history], ai)
-        @test haskey(s.attrs[:trade_history], ai)
-        @test haskey(s.attrs[:performance_metrics], ai)
-        @test haskey(s.attrs[:peak_cash], ai)
+        @test haskey(s.attrs[:pnl_history], ii)
+        @test haskey(s.attrs[:trade_history], ii)
+        @test haskey(s.attrs[:performance_metrics], ii)
+        @test haskey(s.attrs[:peak_cash], ii)
         
         # Check performance metrics structure
-        metrics = s.attrs[:performance_metrics][ai]
+        metrics = s.attrs[:performance_metrics][ii]
         @test haskey(metrics, :total_pnl)
         @test haskey(metrics, :realized_pnl)
         @test haskey(metrics, :unrealized_pnl)
@@ -96,7 +97,7 @@ const CircularBuffer = MockCircularBuffer
         @test haskey(metrics, :sharpe_ratio)
         
         # Check peak cash structure
-        peak_data = s.attrs[:peak_cash][ai]
+        peak_data = s.attrs[:peak_cash][ii]
         @test haskey(peak_data, :peak_value)
         @test haskey(peak_data, :current_value)
         @test haskey(peak_data, :peak_time)
@@ -110,11 +111,11 @@ const CircularBuffer = MockCircularBuffer
         # Mock data for multiple assets
         assets = get_current_assets()
         for asset_str in assets
-            ai = MockAssetInstance(asset_str, :phemex)
+            ii = MockInstrumentInstance(asset_str, :phemex)
             if !haskey(s.attrs, :positions)
                 s.attrs[:positions] = Dict()
             end
-            s.attrs[:positions][ai] = MockPosition(0.05, 50000.0)
+            s.attrs[:positions][ii] = MockPosition(0.05, 50000.0)
         end
         
         # Test tracking all assets
@@ -127,9 +128,9 @@ const CircularBuffer = MockCircularBuffer
         
         # Check each asset has data
         for asset_str in assets
-            ai = MockAssetInstance(asset_str, :phemex)
-            @test haskey(s.attrs[:pnl_history], ai)
-            @test haskey(s.attrs[:performance_metrics], ai)
+            ii = MockInstrumentInstance(asset_str, :phemex)
+            @test haskey(s.attrs[:pnl_history], ii)
+            @test haskey(s.attrs[:performance_metrics], ii)
         end
         
         # Check strategy-level metrics
@@ -142,27 +143,27 @@ const CircularBuffer = MockCircularBuffer
     
     @testset "init_pnl_tracking! function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         
         # Test initialization
-        init_pnl_tracking!(s, ai)
+        init_pnl_tracking!(s, ii)
         
         # Check all structures were created
         @test haskey(s.attrs, :pnl_history)
         @test haskey(s.attrs, :trade_history)
         @test haskey(s.attrs, :performance_metrics)
         
-        @test haskey(s.attrs[:pnl_history], ai)
-        @test haskey(s.attrs[:trade_history], ai)
-        @test haskey(s.attrs[:performance_metrics], ai)
+        @test haskey(s.attrs[:pnl_history], ii)
+        @test haskey(s.attrs[:trade_history], ii)
+        @test haskey(s.attrs[:performance_metrics], ii)
         
         # Check data types
-        @test s.attrs[:pnl_history][ai] isa MockCircularBuffer
-        @test s.attrs[:trade_history][ai] isa Vector
-        @test s.attrs[:performance_metrics][ai] isa Dict
+        @test s.attrs[:pnl_history][ii] isa MockCircularBuffer
+        @test s.attrs[:trade_history][ii] isa Vector
+        @test s.attrs[:performance_metrics][ii] isa Dict
         
         # Check initial values
-        metrics = s.attrs[:performance_metrics][ai]
+        metrics = s.attrs[:performance_metrics][ii]
         @test metrics[:total_pnl] == 0.0
         @test metrics[:realized_pnl] == 0.0
         @test metrics[:unrealized_pnl] == 0.0
@@ -171,78 +172,78 @@ const CircularBuffer = MockCircularBuffer
         
         # Test re-initialization doesn't overwrite
         metrics[:total_pnl] = 100.0
-        init_pnl_tracking!(s, ai)
-        @test s.attrs[:performance_metrics][ai][:total_pnl] == 100.0  # Should not reset
+        init_pnl_tracking!(s, ii)
+        @test s.attrs[:performance_metrics][ii][:total_pnl] == 100.0  # Should not reset
     end
     
     @testset "calculate_current_pnl function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         ats = now()
         
         # Test with no position
-        pnl_no_position = calculate_current_pnl(s, ai, ats)
+        pnl_no_position = calculate_current_pnl(s, ii, ats)
         @test pnl_no_position == 0.0
         
         # Test with long position
-        s.attrs[:positions] = Dict(ai => MockPosition(0.1, 49000.0))  # Long 0.1 BTC at 49000
-        s.attrs[:trade_history] = Dict(ai => [])
+        s.attrs[:positions] = Dict(ii => MockPosition(0.1, 49000.0))  # Long 0.1 BTC at 49000
+        s.attrs[:trade_history] = Dict(ii => [])
         
-        pnl_long = calculate_current_pnl(s, ai, ats)
+        pnl_long = calculate_current_pnl(s, ii, ats)
         # Current price is 50000 (mocked), entry was 49000, position is 0.1
         # Unrealized PnL = (50000 - 49000) * 0.1 = 100
         @test pnl_long > 0  # Should be positive for profitable long
         
         # Test with short position
-        s.attrs[:positions][ai] = MockPosition(-0.1, 51000.0)  # Short 0.1 BTC at 51000
+        s.attrs[:positions][ii] = MockPosition(-0.1, 51000.0)  # Short 0.1 BTC at 51000
         
-        pnl_short = calculate_current_pnl(s, ai, ats)
+        pnl_short = calculate_current_pnl(s, ii, ats)
         # Current price is 50000, entry was 51000, position is -0.1
         # Unrealized PnL = (51000 - 50000) * 0.1 = 100
         @test pnl_short > 0  # Should be positive for profitable short
         
         # Test with realized PnL
-        s.attrs[:trade_history][ai] = [
+        s.attrs[:trade_history][ii] = [
             Dict(:status => :closed, :pnl => 50.0),
             Dict(:status => :closed, :pnl => -20.0),
             Dict(:status => :open, :pnl => 30.0)  # Should not count
         ]
         
-        pnl_with_realized = calculate_current_pnl(s, ai, ats)
+        pnl_with_realized = calculate_current_pnl(s, ii, ats)
         # Should include realized PnL: 50 - 20 = 30, plus unrealized
         @test pnl_with_realized > pnl_short  # Should be higher with realized gains
     end
     
     @testset "update_pnl_history! function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         
         # Initialize tracking
-        init_pnl_tracking!(s, ai)
+        init_pnl_tracking!(s, ii)
         
         ats = now()
         pnl = 150.0
         interval = Minute(15)
         
         # Test first update
-        update_pnl_history!(s, ai, ats, pnl, interval)
+        update_pnl_history!(s, ii, ats, pnl, interval)
         
-        pnl_history = s.attrs[:pnl_history][ai]
+        pnl_history = s.attrs[:pnl_history][ii]
         @test length(pnl_history) == 1
         @test last(pnl_history) == (ats, pnl)
         
         # Test update within interval (should not add new point)
-        update_pnl_history!(s, ai, ats + Minute(5), pnl + 10, interval)
+        update_pnl_history!(s, ii, ats + Minute(5), pnl + 10, interval)
         @test length(pnl_history) == 1  # Should still be 1
         
         # Test update after interval (should add new point)
-        update_pnl_history!(s, ai, ats + Minute(20), pnl + 20, interval)
+        update_pnl_history!(s, ii, ats + Minute(20), pnl + 20, interval)
         @test length(pnl_history) == 2
         @test last(pnl_history) == (ats + Minute(20), pnl + 20)
         
         # Test capacity limit
         for i in 1:1100  # Add more than capacity
-            update_pnl_history!(s, ai, ats + Minute(i * 20), Float64(i), interval)
+            update_pnl_history!(s, ii, ats + Minute(i * 20), Float64(i), interval)
         end
         
         @test length(pnl_history) <= 1000  # Should respect capacity limit
@@ -250,32 +251,32 @@ const CircularBuffer = MockCircularBuffer
     
     @testset "update_performance_metrics! function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         
         # Initialize tracking
-        init_pnl_tracking!(s, ai)
+        init_pnl_tracking!(s, ii)
         
         ats = now()
         current_pnl = 200.0
         
         # Test basic metrics update
-        update_performance_metrics!(s, ai, current_pnl, ats)
+        update_performance_metrics!(s, ii, current_pnl, ats)
         
-        metrics = s.attrs[:performance_metrics][ai]
+        metrics = s.attrs[:performance_metrics][ii]
         @test metrics[:total_pnl] == current_pnl
         @test metrics[:last_updated] == ats
         @test metrics[:peak_pnl] == current_pnl  # First update sets peak
         
         # Test peak PnL update
         higher_pnl = 300.0
-        update_performance_metrics!(s, ai, higher_pnl, ats + Minute(1))
+        update_performance_metrics!(s, ii, higher_pnl, ats + Minute(1))
         
         @test metrics[:peak_pnl] == higher_pnl
         @test haskey(metrics, :peak_pnl_time)
         
         # Test with lower PnL (peak should not change)
         lower_pnl = 150.0
-        update_performance_metrics!(s, ai, lower_pnl, ats + Minute(2))
+        update_performance_metrics!(s, ii, lower_pnl, ats + Minute(2))
         
         @test metrics[:peak_pnl] == higher_pnl  # Should remain at peak
         @test metrics[:total_pnl] == lower_pnl   # But current should update
@@ -283,10 +284,10 @@ const CircularBuffer = MockCircularBuffer
     
     @testset "update_trade_statistics! function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         
         # Initialize with trade history
-        s.attrs[:trade_history] = Dict(ai => [
+        s.attrs[:trade_history] = Dict(ii => [
             Dict(:status => :closed, :pnl => 100.0),
             Dict(:status => :closed, :pnl => -50.0),
             Dict(:status => :closed, :pnl => 75.0),
@@ -297,7 +298,7 @@ const CircularBuffer = MockCircularBuffer
         metrics = Dict{Symbol, Any}()
         
         # Test trade statistics calculation
-        update_trade_statistics!(s, ai, metrics)
+        update_trade_statistics!(s, ii, metrics)
         
         @test metrics[:total_trades] == 4  # Only closed trades
         @test metrics[:winning_trades] == 2  # 100 and 75
@@ -313,9 +314,9 @@ const CircularBuffer = MockCircularBuffer
         @test metrics[:profit_factor] ≈ expected_pf
         
         # Test with no trades
-        s.attrs[:trade_history][ai] = []
+        s.attrs[:trade_history][ii] = []
         metrics_empty = Dict{Symbol, Any}()
-        update_trade_statistics!(s, ai, metrics_empty)
+        update_trade_statistics!(s, ii, metrics_empty)
         
         @test metrics_empty[:total_trades] == 0
         @test metrics_empty[:win_rate] == 0.0
@@ -326,17 +327,17 @@ const CircularBuffer = MockCircularBuffer
     
     @testset "update_risk_metrics! function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         
         # Test with insufficient data
-        s.attrs[:pnl_history] = Dict(ai => MockCircularBuffer{Tuple{DateTime, Float64}}(100))
+        s.attrs[:pnl_history] = Dict(ii => MockCircularBuffer{Tuple{DateTime, Float64}}(100))
         metrics = Dict{Symbol, Any}()
         
-        update_risk_metrics!(s, ai, metrics)
+        update_risk_metrics!(s, ii, metrics)
         @test metrics[:sharpe_ratio] == 0.0
         
         # Test with sufficient data
-        pnl_history = s.attrs[:pnl_history][ai]
+        pnl_history = s.attrs[:pnl_history][ii]
         base_time = now()
         
         # Add PnL data with some returns
@@ -344,7 +345,7 @@ const CircularBuffer = MockCircularBuffer
             push!(pnl_history, (base_time + Minute(i), Float64(i * 10 + randn() * 5)))
         end
         
-        update_risk_metrics!(s, ai, metrics)
+        update_risk_metrics!(s, ii, metrics)
         
         @test haskey(metrics, :sharpe_ratio)
         @test metrics[:sharpe_ratio] isa Float64
@@ -354,42 +355,42 @@ const CircularBuffer = MockCircularBuffer
         for i in 1:10
             push!(pnl_history_constant, (base_time + Minute(i), 100.0))  # Constant PnL
         end
-        s.attrs[:pnl_history][ai] = pnl_history_constant
+        s.attrs[:pnl_history][ii] = pnl_history_constant
         
         metrics_constant = Dict{Symbol, Any}()
-        update_risk_metrics!(s, ai, metrics_constant)
+        update_risk_metrics!(s, ii, metrics_constant)
         @test metrics_constant[:sharpe_ratio] == 0.0  # Zero std should give 0 Sharpe
     end
     
     @testset "peak_cash! functions" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         ats = now()
         
         # Mock get_current_equity to return predictable values
-        get_current_equity(s::MockStrategy, ai::MockAssetInstance) = 10500.0
+        get_current_equity(s::MockStrategy, ii::MockInstrumentInstance) = 10500.0
         
         # Test single asset peak cash
-        peak_cash!(s, ai, ats)
+        peak_cash!(s, ii, ats)
         
         @test haskey(s.attrs, :peak_cash)
-        @test haskey(s.attrs[:peak_cash], ai)
+        @test haskey(s.attrs[:peak_cash], ii)
         
-        peak_data = s.attrs[:peak_cash][ai]
+        peak_data = s.attrs[:peak_cash][ii]
         @test peak_data[:peak_value] == 10500.0
         @test peak_data[:current_value] == 10500.0
         @test peak_data[:peak_time] == ats
         
         # Test with higher equity
-        get_current_equity(s::MockStrategy, ai::MockAssetInstance) = 11000.0
-        peak_cash!(s, ai, ats + Minute(1))
+        get_current_equity(s::MockStrategy, ii::MockInstrumentInstance) = 11000.0
+        peak_cash!(s, ii, ats + Minute(1))
         
         @test peak_data[:peak_value] == 11000.0
         @test peak_data[:peak_time] == ats + Minute(1)
         
         # Test with lower equity (peak should not change)
-        get_current_equity(s::MockStrategy, ai::MockAssetInstance) = 10800.0
-        peak_cash!(s, ai, ats + Minute(2))
+        get_current_equity(s::MockStrategy, ii::MockInstrumentInstance) = 10800.0
+        peak_cash!(s, ii, ats + Minute(2))
         
         @test peak_data[:peak_value] == 11000.0  # Should remain at peak
         @test peak_data[:current_value] == 10800.0  # But current should update
@@ -407,51 +408,51 @@ const CircularBuffer = MockCircularBuffer
     
     @testset "calculate_drawdown function" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         
         # Test with no peak data
-        drawdown_no_data = calculate_drawdown(s, ai)
+        drawdown_no_data = calculate_drawdown(s, ii)
         @test drawdown_no_data == 0.0
         
         # Test with peak data
-        s.attrs[:peak_cash] = Dict(ai => Dict(
+        s.attrs[:peak_cash] = Dict(ii => Dict(
             :peak_value => 12000.0,
             :current_value => 10000.0
         ))
         
-        drawdown = calculate_drawdown(s, ai)
+        drawdown = calculate_drawdown(s, ii)
         expected_drawdown = (12000.0 - 10000.0) / 12000.0
         @test drawdown ≈ expected_drawdown
         
         # Test with current value higher than peak (should be 0)
-        s.attrs[:peak_cash][ai][:current_value] = 13000.0
-        drawdown_negative = calculate_drawdown(s, ai)
+        s.attrs[:peak_cash][ii][:current_value] = 13000.0
+        drawdown_negative = calculate_drawdown(s, ii)
         @test drawdown_negative == 0.0
         
         # Test with zero peak value
-        s.attrs[:peak_cash][ai][:peak_value] = 0.0
-        drawdown_zero_peak = calculate_drawdown(s, ai)
+        s.attrs[:peak_cash][ii][:peak_value] = 0.0
+        drawdown_zero_peak = calculate_drawdown(s, ii)
         @test drawdown_zero_peak == 0.0
     end
     
     @testset "Summary functions" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         
         # Initialize with some data
-        init_pnl_tracking!(s, ai)
-        s.attrs[:performance_metrics][ai][:total_pnl] = 250.0
-        s.attrs[:performance_metrics][ai][:win_rate] = 0.65
-        s.attrs[:performance_metrics][ai][:total_trades] = 20
-        s.attrs[:peak_cash] = Dict(ai => Dict(
+        init_pnl_tracking!(s, ii)
+        s.attrs[:performance_metrics][ii][:total_pnl] = 250.0
+        s.attrs[:performance_metrics][ii][:win_rate] = 0.65
+        s.attrs[:performance_metrics][ii][:total_trades] = 20
+        s.attrs[:peak_cash] = Dict(ii => Dict(
             :peak_value => 11000.0,
             :current_value => 10750.0
         ))
         
         # Test get_pnl_summary
-        summary = get_pnl_summary(s, ai)
+        summary = get_pnl_summary(s, ii)
         
-        @test summary[:asset] == ai
+        @test summary[:asset] == ii
         @test summary[:total_pnl] == 250.0
         @test summary[:win_rate] == 0.65
         @test summary[:total_trades] == 20
@@ -482,48 +483,48 @@ const CircularBuffer = MockCircularBuffer
         
         @test strategy_summary[:strategy_metrics][:total_pnl] == 500.0
         @test strategy_summary[:strategy_peak_cash][:peak_value] == 25000.0
-        @test haskey(strategy_summary[:asset_summaries], ai)
+        @test haskey(strategy_summary[:asset_summaries], ii)
     end
     
     @testset "Error handling and edge cases" begin
         s = MockStrategy()
-        ai = MockAssetInstance("BTC/USDT", :phemex)
+        ii = MockInstrumentInstance("BTC/USDT", :phemex)
         ats = now()
         
         # Test trackpnl! with missing data
-        trackpnl!(s, ai, ats)  # Should not crash
+        trackpnl!(s, ii, ats)  # Should not crash
         @test haskey(s.attrs, :pnl_history)  # Should initialize structures
         
         # Test calculate_current_pnl with invalid position
-        s.attrs[:positions] = Dict(ai => "invalid_position")
-        pnl_invalid = calculate_current_pnl(s, ai, ats)
+        s.attrs[:positions] = Dict(ii => "invalid_position")
+        pnl_invalid = calculate_current_pnl(s, ii, ats)
         @test pnl_invalid == 0.0  # Should handle gracefully
         
         # Test with missing OHLCV data
-        s.attrs[:positions] = Dict(ai => MockPosition(0.1, 50000.0))
+        s.attrs[:positions] = Dict(ii => MockPosition(0.1, 50000.0))
         # No ohlcv_data set
-        pnl_no_ohlcv = calculate_current_pnl(s, ai, ats)
+        pnl_no_ohlcv = calculate_current_pnl(s, ii, ats)
         @test pnl_no_ohlcv isa Float64  # Should return some value
         
         # Test update_trade_statistics! with malformed trade data
-        s.attrs[:trade_history] = Dict(ai => [
+        s.attrs[:trade_history] = Dict(ii => [
             Dict(:status => :closed),  # Missing PnL
             Dict(:pnl => 100.0),       # Missing status
             "invalid_trade"            # Invalid structure
         ])
         
         metrics = Dict{Symbol, Any}()
-        update_trade_statistics!(s, ai, metrics)  # Should not crash
+        update_trade_statistics!(s, ii, metrics)  # Should not crash
         @test haskey(metrics, :total_trades)
         
         # Test peak_cash! with error in equity calculation
         # Mock function that throws error
-        get_current_equity_error(s::MockStrategy, ai::MockAssetInstance) = throw(ErrorException("Test error"))
+        get_current_equity_error(s::MockStrategy, ii::MockInstrumentInstance) = throw(ErrorException("Test error"))
         
         # Should handle error gracefully
         try
             # This would need to be mocked properly in a real implementation
-            peak_cash!(s, ai, ats)
+            peak_cash!(s, ii, ats)
             @test true  # Should not crash
         catch e
             @test e isa Exception

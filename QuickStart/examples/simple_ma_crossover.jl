@@ -17,10 +17,10 @@ function setsignals!(s)
     inittrends!(s, keys(sigdefs.defs))
 end
 
-function isbuy(s::SC, ai, ats)
+function isbuy(s::SC, ii, ats)
     # Get the moving average values
-    fast_ma = signal_value(s, ai, :sma_fast, ats)
-    slow_ma = signal_value(s, ai, :sma_slow, ats)
+    fast_ma = signal_value(s, ii, :sma_fast, ats)
+    slow_ma = signal_value(s, ii, :sma_slow, ats)
     
     # Validate signals - return false if any are missing
     if isnothing(fast_ma) || isnothing(slow_ma)
@@ -31,10 +31,10 @@ function isbuy(s::SC, ai, ats)
     return fast_ma > slow_ma
 end
 
-function issell(s::SC, ai, ats)
+function issell(s::SC, ii, ats)
     # Get the moving average values
-    fast_ma = signal_value(s, ai, :sma_fast, ats)
-    slow_ma = signal_value(s, ai, :sma_slow, ats)
+    fast_ma = signal_value(s, ii, :sma_fast, ats)
+    slow_ma = signal_value(s, ii, :sma_slow, ats)
     
     # Validate signals - return false if any are missing
     if isnothing(fast_ma) || isnothing(slow_ma)
@@ -46,17 +46,17 @@ function issell(s::SC, ai, ats)
 end
 
 # Optional: Add crossover detection for more precise entry/exit
-function isbuy_with_crossover(s::SC, ai, ats)
+function isbuy_with_crossover(s::SC, ii, ats)
     # Get current values
-    fast_ma = signal_value(s, ai, :sma_fast, ats)
-    slow_ma = signal_value(s, ai, :sma_slow, ats)
+    fast_ma = signal_value(s, ii, :sma_fast, ats)
+    slow_ma = signal_value(s, ii, :sma_slow, ats)
     
     if isnothing(fast_ma) || isnothing(slow_ma)
         return false
     end
     
     # Get previous values for crossover detection
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     
     if idx < 2  # Need at least 2 periods for crossover
@@ -64,8 +64,8 @@ function isbuy_with_crossover(s::SC, ai, ats)
     end
     
     prev_ats = data.timestamp[idx-1]
-    prev_fast = signal_value(s, ai, :sma_fast, prev_ats)
-    prev_slow = signal_value(s, ai, :sma_slow, prev_ats)
+    prev_fast = signal_value(s, ii, :sma_fast, prev_ats)
+    prev_slow = signal_value(s, ii, :sma_slow, prev_ats)
     
     if isnothing(prev_fast) || isnothing(prev_slow)
         return false
@@ -75,17 +75,17 @@ function isbuy_with_crossover(s::SC, ai, ats)
     return (prev_fast <= prev_slow) && (fast_ma > slow_ma)
 end
 
-function issell_with_crossover(s::SC, ai, ats)
+function issell_with_crossover(s::SC, ii, ats)
     # Get current values
-    fast_ma = signal_value(s, ai, :sma_fast, ats)
-    slow_ma = signal_value(s, ai, :sma_slow, ats)
+    fast_ma = signal_value(s, ii, :sma_fast, ats)
+    slow_ma = signal_value(s, ii, :sma_slow, ats)
     
     if isnothing(fast_ma) || isnothing(slow_ma)
         return false
     end
     
     # Get previous values for crossover detection
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     
     if idx < 2  # Need at least 2 periods for crossover
@@ -93,8 +93,8 @@ function issell_with_crossover(s::SC, ai, ats)
     end
     
     prev_ats = data.timestamp[idx-1]
-    prev_fast = signal_value(s, ai, :sma_fast, prev_ats)
-    prev_slow = signal_value(s, ai, :sma_slow, prev_ats)
+    prev_fast = signal_value(s, ii, :sma_fast, prev_ats)
+    prev_slow = signal_value(s, ii, :sma_slow, prev_ats)
     
     if isnothing(prev_fast) || isnothing(prev_slow)
         return false

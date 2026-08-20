@@ -37,12 +37,12 @@ end
 
 call!(_::SC, ::WarmupPeriod) = Day(1)
 
-function handler(s, ai, ats, ts)
+function handler(s, ii, ats, ts)
     """
     1) Compute indicators from data
     """
-    call!(bbands!, s, ai, UpdateData(); cols=(:bb_lower, :bb_upper))
-    ohlcv = ai.data[s.timeframe]
+    call!(bbands!, s, ii, UpdateData(); cols=(:bb_lower, :bb_upper))
+    ohlcv = ii.data[s.timeframe]
 
     lower = ohlcv[ats, :bb_lower]
     upper = ohlcv[ats, :bb_upper]
@@ -59,32 +59,32 @@ function handler(s, ai, ats, ts)
     """
     3) Fetch position for symbol
     """
-    has_position = isopen(ai, Long())
-    prev_trades = length(trades(ai))
+    has_position = isopen(ii, Long())
+    prev_trades = length(trades(ii))
 
     """
     4) Resolve buy or sell signals
     """
     if current_price < lower && !has_position
-        @linfo 1 "buy signal: creating market order" sym = raw(ai) buy_value current_price
+        @linfo 1 "buy signal: creating market order" sym = raw(ii) buy_value current_price
         amount = buy_value / current_price
-        call!(s, ai, MarketOrder{Buy}; date=ts, amount)
+        call!(s, ii, MarketOrder{Buy}; date=ts, amount)
     elseif current_price > upper && has_position
-        @linfo 1 "sell signal: closing position" exposure = value(ai) current_price
-        call!(s, ai, Long(), ts, PositionClose())
+        @linfo 1 "sell signal: closing position" exposure = value(ii) current_price
+        call!(s, ii, Long(), ts, PositionClose())
     end
     """
     5) Check strategy profitability
     """
-    if length(trades(ai)) > prev_trades
+    if length(trades(ii)) > prev_trades
         # ....
     end
 end
 
 function call!(s::T, ts::DateTime, _) where {T<:SC}
     ats = available(s.timeframe, ts)
-    foreach(s.universe) do ai
-        handler(s, ai, ats, ts)
+    foreach(s.universe) do ii
+        handler(s, ii, ats, ts)
     end
 end
 

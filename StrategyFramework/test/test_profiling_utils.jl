@@ -1,7 +1,8 @@
 # Test profiling utilities
 
 using Test
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 using Planar
 
 # Include the module being tested

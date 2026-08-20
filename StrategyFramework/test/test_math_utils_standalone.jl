@@ -1,7 +1,8 @@
 # Standalone tests for math utilities
 using Test
 using Statistics
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 
 # Include the math utils directly
 include("../src/utilities/math_utils.jl")

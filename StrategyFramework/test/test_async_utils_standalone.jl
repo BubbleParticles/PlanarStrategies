@@ -1,6 +1,7 @@
 # Standalone tests for async utilities
 using Test
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 
 # Mock the required constants and functions for testing
 const THREADSAFE = Ref{Bool}(true)

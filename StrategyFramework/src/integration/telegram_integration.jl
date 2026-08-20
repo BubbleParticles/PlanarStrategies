@@ -7,7 +7,8 @@ of trading strategies, including notification utilities and remote control hooks
 
 # Import from parent module when included
 # using ..StrategyFramework: SC, StrategyConfig
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 using Logging
 
 # Import Remote module functionality if available
@@ -163,18 +164,18 @@ function send_telegram_notification(s::SC, message::String; priority::Symbol=:in
 end
 
 """
-    send_trade_notification(s::SC, ai, side::Symbol, amount::Float64, price::Float64)
+    send_trade_notification(s::SC, ii, side::Symbol, amount::Float64, price::Float64)
 
 Send a trade execution notification via Telegram.
 
 # Arguments
 - `s::SC`: The strategy instance
-- `ai`: Asset instance
+- `ii`: Instrument instance
 - `side::Symbol`: Trade side (:buy or :sell)
 - `amount::Float64`: Trade amount
 - `price::Float64`: Execution price
 """
-function send_trade_notification(s::SC, ai, side::Symbol, amount::Float64, price::Float64)
+function send_trade_notification(s::SC, ii, side::Symbol, amount::Float64, price::Float64)
     if !REMOTE_AVAILABLE[]
         return false
     end
@@ -185,7 +186,7 @@ function send_trade_notification(s::SC, ai, side::Symbol, amount::Float64, price
         
         message = """
         $emoji Trade Executed
-        Asset: $(ai)
+        Instrument: $(ii)
         Side: $side_str
         Amount: $(round(amount, digits=6))
         Price: $(round(price, digits=6))

@@ -1,170 +1,171 @@
 # Trend detection system for StrategyFramework
 
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 using Statistics
 using Planar
 # MovingExtrema, WMA, and CircularBuffer are available via @strategyenv!() through Data module
 
 """
-    trackhl!(s::SC, ai::AssetInstance, ats::DateTime)
+    trackhl!(s::SC, ii::InstrumentInstance, ats::DateTime)
 
 Track high-low extrema for trend analysis.
 Updates moving extrema and high-low tracking for an asset.
 """
-function trackhl!(s::SC, ai::AssetInstance, ats::DateTime)
-    @debug "Tracking high-low extrema" asset=ai timestamp=ats
+function trackhl!(s::SC, ii::InstrumentInstance, ats::DateTime)
+    @debug "Tracking high-low extrema" asset=ii timestamp=ats
     
     try
         # Initialize tracking structures if needed
-        init_hl_tracking!(s, ai)
+        init_hl_tracking!(s, ii)
         
         # Get current price data
-        current_data = get_current_ohlcv(s, ai, ats)
+        current_data = get_current_ohlcv(s, ii, ats)
         
         if isnothing(current_data)
-            @warn "No OHLCV data available for HL tracking" asset=ai
+            @warn "No OHLCV data available for HL tracking" asset=ii
             return nothing
         end
         
         # Update moving extrema
-        update_moving_extrema!(s, ai, current_data, ats)
+        update_moving_extrema!(s, ii, current_data, ats)
         
         # Update high-low trend tracking
-        update_hl_trend!(s, ai, current_data, ats)
+        update_hl_trend!(s, ii, current_data, ats)
         
-        @debug "High-low tracking completed" asset=ai
+        @debug "High-low tracking completed" asset=ii
         
     catch e
-        @error "Failed to track high-low extrema" asset=ai error=e
+        @error "Failed to track high-low extrema" asset=ii error=e
     end
     
     nothing
 end
 
 """
-    trackqt!(s::SC, ai::AssetInstance, ats::DateTime)
+    trackqt!(s::SC, ii::InstrumentInstance, ats::DateTime)
 
 Track quote/price trends and momentum indicators.
 Updates trend quality and momentum tracking for an asset.
 """
-function trackqt!(s::SC, ai::AssetInstance, ats::DateTime)
-    @debug "Tracking quote trends" asset=ai timestamp=ats
+function trackqt!(s::SC, ii::InstrumentInstance, ats::DateTime)
+    @debug "Tracking quote trends" asset=ii timestamp=ats
     
     try
         # Initialize tracking structures if needed
-        init_qt_tracking!(s, ai)
+        init_qt_tracking!(s, ii)
         
         # Get current price data
-        current_data = get_current_ohlcv(s, ai, ats)
+        current_data = get_current_ohlcv(s, ii, ats)
         
         if isnothing(current_data)
-            @warn "No OHLCV data available for QT tracking" asset=ai
+            @warn "No OHLCV data available for QT tracking" asset=ii
             return nothing
         end
         
         # Update trend quality indicators
-        update_trend_quality!(s, ai, current_data, ats)
+        update_trend_quality!(s, ii, current_data, ats)
         
         # Update momentum indicators
-        update_momentum_indicators!(s, ai, current_data, ats)
+        update_momentum_indicators!(s, ii, current_data, ats)
         
         # Update volatility tracking
-        update_volatility_tracking!(s, ai, current_data, ats)
+        update_volatility_tracking!(s, ii, current_data, ats)
         
-        @debug "Quote trend tracking completed" asset=ai
+        @debug "Quote trend tracking completed" asset=ii
         
     catch e
-        @error "Failed to track quote trends" asset=ai error=e
+        @error "Failed to track quote trends" asset=ii error=e
     end
     
     nothing
 end
 
 """
-    track_trends!(s::SC, ai::AssetInstance, ats::DateTime)
+    track_trends!(s::SC, ii::InstrumentInstance, ats::DateTime)
 
 Main trend tracking function that combines all trend analysis.
 This is the primary entry point for trend detection.
 """
-function track_trends!(s::SC, ai::AssetInstance, ats::DateTime)
-    @debug "Tracking trends" asset=ai timestamp=ats
+function track_trends!(s::SC, ii::InstrumentInstance, ats::DateTime)
+    @debug "Tracking trends" asset=ii timestamp=ats
     
     try
         # Track high-low extrema
-        trackhl!(s, ai, ats)
+        trackhl!(s, ii, ats)
         
         # Track quote trends
-        trackqt!(s, ai, ats)
+        trackqt!(s, ii, ats)
         
         # Update composite trend signals
-        update_composite_trend!(s, ai, ats)
+        update_composite_trend!(s, ii, ats)
         
         # Validate trend signals
-        validate_trend_signals!(s, ai, ats)
+        validate_trend_signals!(s, ii, ats)
         
-        @debug "Trend tracking completed" asset=ai
+        @debug "Trend tracking completed" asset=ii
         
     catch e
-        @error "Failed to track trends" asset=ai error=e
+        @error "Failed to track trends" asset=ii error=e
     end
     
     nothing
 end
 
 """
-    update_asset_tracking!(s::SC, ai::AssetInstance, ats::DateTime)
+    update_asset_tracking!(s::SC, ii::InstrumentInstance, ats::DateTime)
 
 Update all tracking information for an asset.
 This function coordinates all data tracking activities.
 """
-function update_asset_tracking!(s::SC, ai::AssetInstance, ats::DateTime)
-    @debug "Updating asset tracking" asset=ai timestamp=ats
+function update_asset_tracking!(s::SC, ii::InstrumentInstance, ats::DateTime)
+    @debug "Updating asset tracking" asset=ii timestamp=ats
     
     try
         # Update trend tracking
-        track_trends!(s, ai, ats)
+        track_trends!(s, ii, ats)
         
         # Update PnL tracking
-        trackpnl!(s, ai, ats)
+        trackpnl!(s, ii, ats)
         
         # Update position tracking
-        update_position_tracking!(s, ai, ats)
+        update_position_tracking!(s, ii, ats)
         
         # Update signal tracking
-        update_signal_tracking!(s, ai, ats)
+        update_signal_tracking!(s, ii, ats)
         
-        @debug "Asset tracking updated" asset=ai
+        @debug "Instrument tracking updated" asset=ii
         
     catch e
-        @error "Failed to update asset tracking" asset=ai error=e
+        @error "Failed to update asset tracking" asset=ii error=e
     end
     
     nothing
 end
 
 """
-    init_hl_tracking!(s::SC, ai::AssetInstance)
+    init_hl_tracking!(s::SC, ii::InstrumentInstance)
 
 Initialize high-low tracking structures for an asset.
 """
-function init_hl_tracking!(s::SC, ai::AssetInstance)
+function init_hl_tracking!(s::SC, ii::InstrumentInstance)
     # Initialize extrema tracking
     if !haskey(s.attrs, :extremas)
-        s[:extremas] = Dict{AssetInstance, MovingExtrema}()
+        s[:extremas] = Dict{InstrumentInstance, MovingExtrema}()
     end
     
-    if !haskey(s[:extremas], ai)
+    if !haskey(s[:extremas], ii)
         # Create moving extrema with 100-period window
-        s[:extremas][ai] = MovingExtrema(100)
+        s[:extremas][ii] = MovingExtrema(100)
     end
     
     # Initialize HL trackers
     if !haskey(s.attrs, :hl_trackers)
-        s[:hl_trackers] = Dict{AssetInstance, Dict{Symbol, Any}}()
+        s[:hl_trackers] = Dict{InstrumentInstance, Dict{Symbol, Any}}()
     end
     
-    if !haskey(s[:hl_trackers], ai)
-        s[:hl_trackers][ai] = Dict{Symbol, Any}(
+    if !haskey(s[:hl_trackers], ii)
+        s[:hl_trackers][ii] = Dict{Symbol, Any}(
             :last_update => DateTime(0),
             :wma => WMA(20),  # 20-period weighted moving average
             :trend_direction => :neutral,
@@ -179,18 +180,18 @@ function init_hl_tracking!(s::SC, ai::AssetInstance)
 end
 
 """
-    init_qt_tracking!(s::SC, ai::AssetInstance)
+    init_qt_tracking!(s::SC, ii::InstrumentInstance)
 
 Initialize quote trend tracking structures for an asset.
 """
-function init_qt_tracking!(s::SC, ai::AssetInstance)
+function init_qt_tracking!(s::SC, ii::InstrumentInstance)
     # Initialize quote trend tracking
     if !haskey(s.attrs, :qt_trackers)
-        s[:qt_trackers] = Dict{AssetInstance, Dict{Symbol, Any}}()
+        s[:qt_trackers] = Dict{InstrumentInstance, Dict{Symbol, Any}}()
     end
     
-    if !haskey(s[:qt_trackers], ai)
-        s[:qt_trackers][ai] = Dict{Symbol, Any}(
+    if !haskey(s[:qt_trackers], ii)
+        s[:qt_trackers][ii] = Dict{Symbol, Any}(
             :last_update => DateTime(0),
             :price_history => CircularBuffer{Tuple{DateTime, Float64}}(200),
             :volume_history => CircularBuffer{Tuple{DateTime, Float64}}(200),
@@ -208,13 +209,13 @@ function init_qt_tracking!(s::SC, ai::AssetInstance)
 end
 
 """
-    get_current_ohlcv(s::SC, ai::AssetInstance, ats::DateTime)
+    get_current_ohlcv(s::SC, ii::InstrumentInstance, ats::DateTime)
 
 Get current OHLCV data for an asset at a specific timestamp.
 """
-function get_current_ohlcv(s::SC, ai::AssetInstance, ats::DateTime)
+function get_current_ohlcv(s::SC, ii::InstrumentInstance, ats::DateTime)
     try
-        ohlcv_data = get(get(s.attrs, :ohlcv_data, Dict()), ai, nothing)
+        ohlcv_data = get(get(s.attrs, :ohlcv_data, Dict()), ii, nothing)
         
         if isnothing(ohlcv_data) || isempty(ohlcv_data)
             return nothing
@@ -231,18 +232,18 @@ function get_current_ohlcv(s::SC, ai::AssetInstance, ats::DateTime)
         )
         
     catch e
-        @error "Failed to get current OHLCV" asset=ai error=e
+        @error "Failed to get current OHLCV" asset=ii error=e
         return nothing
     end
 end
 
 """
-    update_moving_extrema!(s::SC, ai::AssetInstance, current_data::Dict, ats::DateTime)
+    update_moving_extrema!(s::SC, ii::InstrumentInstance, current_data::Dict, ats::DateTime)
 
 Update moving extrema tracking with current price data.
 """
-function update_moving_extrema!(s::SC, ai::AssetInstance, current_data::Dict, ats::DateTime)
-    extrema = s[:extremas][ai]
+function update_moving_extrema!(s::SC, ii::InstrumentInstance, current_data::Dict, ats::DateTime)
+    extrema = s[:extremas][ii]
     
     # Update extrema with high and low prices
     high = current_data[:high]
@@ -253,22 +254,22 @@ function update_moving_extrema!(s::SC, ai::AssetInstance, current_data::Dict, at
     push!(extrema, low)
     
     # Update support and resistance levels
-    hl_tracker = s[:hl_trackers][ai]
+    hl_tracker = s[:hl_trackers][ii]
     hl_tracker[:support_level] = minimum(extrema)
     hl_tracker[:resistance_level] = maximum(extrema)
     
-    @debug "Moving extrema updated" asset=ai support=hl_tracker[:support_level] resistance=hl_tracker[:resistance_level]
+    @debug "Moving extrema updated" asset=ii support=hl_tracker[:support_level] resistance=hl_tracker[:resistance_level]
     
     nothing
 end
 
 """
-    update_hl_trend!(s::SC, ai::AssetInstance, current_data::Dict, ats::DateTime)
+    update_hl_trend!(s::SC, ii::InstrumentInstance, current_data::Dict, ats::DateTime)
 
 Update high-low trend analysis.
 """
-function update_hl_trend!(s::SC, ai::AssetInstance, current_data::Dict, ats::DateTime)
-    hl_tracker = s[:hl_trackers][ai]
+function update_hl_trend!(s::SC, ii::InstrumentInstance, current_data::Dict, ats::DateTime)
+    hl_tracker = s[:hl_trackers][ii]
     wma = hl_tracker[:wma]
     
     # Update WMA with close price
@@ -297,18 +298,18 @@ function update_hl_trend!(s::SC, ai::AssetInstance, current_data::Dict, ats::Dat
     hl_tracker[:last_update] = ats
     
     # Check for breakout signals
-    check_breakout_signals!(s, ai, current_data, ats)
+    check_breakout_signals!(s, ii, current_data, ats)
     
     nothing
 end
 
 """
-    check_breakout_signals!(s::SC, ai::AssetInstance, current_data::Dict, ats::DateTime)
+    check_breakout_signals!(s::SC, ii::InstrumentInstance, current_data::Dict, ats::DateTime)
 
 Check for breakout signals based on support/resistance levels.
 """
-function check_breakout_signals!(s::SC, ai::AssetInstance, current_data::Dict, ats::DateTime)
-    hl_tracker = s[:hl_trackers][ai]
+function check_breakout_signals!(s::SC, ii::InstrumentInstance, current_data::Dict, ats::DateTime)
+    hl_tracker = s[:hl_trackers][ii]
     
     close_price = current_data[:close]
     high_price = current_data[:high]
@@ -322,25 +323,25 @@ function check_breakout_signals!(s::SC, ai::AssetInstance, current_data::Dict, a
     # Check for resistance breakout
     if high_price > resistance * 1.002  # 0.2% threshold
         push!(breakout_signals, (ats, :resistance_break, high_price))
-        @debug "Resistance breakout detected" asset=ai price=high_price resistance=resistance
+        @debug "Resistance breakout detected" asset=ii price=high_price resistance=resistance
     end
     
     # Check for support breakdown
     if low_price < support * 0.998  # 0.2% threshold
         push!(breakout_signals, (ats, :support_break, low_price))
-        @debug "Support breakdown detected" asset=ai price=low_price support=support
+        @debug "Support breakdown detected" asset=ii price=low_price support=support
     end
     
     nothing
 end
 
 """
-    update_trend_quality!(s::SC, ai::AssetInstance, current_data::Dict, ats::DateTime)
+    update_trend_quality!(s::SC, ii::InstrumentInstance, current_data::Dict, ats::DateTime)
 
 Update trend quality indicators.
 """
-function update_trend_quality!(s::SC, ai::AssetInstance, current_data::Dict, ats::DateTime)
-    qt_tracker = s[:qt_trackers][ai]
+function update_trend_quality!(s::SC, ii::InstrumentInstance, current_data::Dict, ats::DateTime)
+    qt_tracker = s[:qt_trackers][ii]
     
     close_price = current_data[:close]
     volume = current_data[:volume]
@@ -380,12 +381,12 @@ function update_trend_quality!(s::SC, ai::AssetInstance, current_data::Dict, ats
 end
 
 """
-    update_momentum_indicators!(s::SC, ai::AssetInstance, current_data::Dict, ats::DateTime)
+    update_momentum_indicators!(s::SC, ii::InstrumentInstance, current_data::Dict, ats::DateTime)
 
 Update momentum indicators like ROC (Rate of Change).
 """
-function update_momentum_indicators!(s::SC, ai::AssetInstance, current_data::Dict, ats::DateTime)
-    qt_tracker = s[:qt_trackers][ai]
+function update_momentum_indicators!(s::SC, ii::InstrumentInstance, current_data::Dict, ats::DateTime)
+    qt_tracker = s[:qt_trackers][ii]
     
     close_price = current_data[:close]
     price_history = qt_tracker[:price_history]
@@ -415,12 +416,12 @@ function update_momentum_indicators!(s::SC, ai::AssetInstance, current_data::Dic
 end
 
 """
-    update_volatility_tracking!(s::SC, ai::AssetInstance, current_data::Dict, ats::DateTime)
+    update_volatility_tracking!(s::SC, ii::InstrumentInstance, current_data::Dict, ats::DateTime)
 
 Update volatility tracking and analysis.
 """
-function update_volatility_tracking!(s::SC, ai::AssetInstance, current_data::Dict, ats::DateTime)
-    qt_tracker = s[:qt_trackers][ai]
+function update_volatility_tracking!(s::SC, ii::InstrumentInstance, current_data::Dict, ats::DateTime)
+    qt_tracker = s[:qt_trackers][ii]
     price_history = qt_tracker[:price_history]
     
     if length(price_history) >= 20
@@ -456,21 +457,21 @@ function update_volatility_tracking!(s::SC, ai::AssetInstance, current_data::Dic
 end
 
 """
-    update_composite_trend!(s::SC, ai::AssetInstance, ats::DateTime)
+    update_composite_trend!(s::SC, ii::InstrumentInstance, ats::DateTime)
 
 Update composite trend signals combining all trend indicators.
 """
-function update_composite_trend!(s::SC, ai::AssetInstance, ats::DateTime)
-    @debug "Updating composite trend signals" asset=ai timestamp=ats
+function update_composite_trend!(s::SC, ii::InstrumentInstance, ats::DateTime)
+    @debug "Updating composite trend signals" asset=ii timestamp=ats
     
     try
         # Initialize composite trend tracking
         if !haskey(s.attrs, :composite_trends)
-            s[:composite_trends] = Dict{AssetInstance, Dict{Symbol, Any}}()
+            s[:composite_trends] = Dict{InstrumentInstance, Dict{Symbol, Any}}()
         end
         
-        if !haskey(s[:composite_trends], ai)
-            s[:composite_trends][ai] = Dict{Symbol, Any}(
+        if !haskey(s[:composite_trends], ii)
+            s[:composite_trends][ii] = Dict{Symbol, Any}(
                 :overall_trend => :neutral,
                 :trend_strength => 0.0,
                 :trend_confidence => 0.0,
@@ -479,11 +480,11 @@ function update_composite_trend!(s::SC, ai::AssetInstance, ats::DateTime)
             )
         end
         
-        composite = s[:composite_trends][ai]
+        composite = s[:composite_trends][ii]
         
         # Get individual trend components
-        hl_tracker = get(get(s.attrs, :hl_trackers, Dict()), ai, Dict())
-        qt_tracker = get(get(s.attrs, :qt_trackers, Dict()), ai, Dict())
+        hl_tracker = get(get(s.attrs, :hl_trackers, Dict()), ii, Dict())
+        qt_tracker = get(get(s.attrs, :qt_trackers, Dict()), ii, Dict())
         
         # Combine trend signals
         hl_direction = get(hl_tracker, :trend_direction, :neutral)
@@ -517,43 +518,43 @@ function update_composite_trend!(s::SC, ai::AssetInstance, ats::DateTime)
         composite[:signal_quality] = (composite[:trend_confidence] + volume_confirmation) / 2.0
         composite[:last_update] = ats
         
-        @debug "Composite trend updated" asset=ai trend=composite[:overall_trend] strength=composite[:trend_strength] confidence=composite[:trend_confidence]
+        @debug "Composite trend updated" asset=ii trend=composite[:overall_trend] strength=composite[:trend_strength] confidence=composite[:trend_confidence]
         
     catch e
-        @error "Failed to update composite trend" asset=ai error=e
+        @error "Failed to update composite trend" asset=ii error=e
     end
     
     nothing
 end
 
 """
-    validate_trend_signals!(s::SC, ai::AssetInstance, ats::DateTime)
+    validate_trend_signals!(s::SC, ii::InstrumentInstance, ats::DateTime)
 
 Validate trend signals for consistency and reliability.
 """
-function validate_trend_signals!(s::SC, ai::AssetInstance, ats::DateTime)
-    @debug "Validating trend signals" asset=ai timestamp=ats
+function validate_trend_signals!(s::SC, ii::InstrumentInstance, ats::DateTime)
+    @debug "Validating trend signals" asset=ii timestamp=ats
     
     try
         # Initialize validation tracking
         if !haskey(s.attrs, :trend_validation)
-            s[:trend_validation] = Dict{AssetInstance, Dict{Symbol, Any}}()
+            s[:trend_validation] = Dict{InstrumentInstance, Dict{Symbol, Any}}()
         end
         
-        if !haskey(s[:trend_validation], ai)
-            s[:trend_validation][ai] = Dict{Symbol, Any}(
+        if !haskey(s[:trend_validation], ii)
+            s[:trend_validation][ii] = Dict{Symbol, Any}(
                 :validation_history => CircularBuffer{Tuple{DateTime, Bool, String}}(100),
                 :signal_reliability => 0.0,
                 :last_validation => ats
             )
         end
         
-        validation = s[:trend_validation][ai]
+        validation = s[:trend_validation][ii]
         
         # Get trend components for validation
-        composite = get(get(s.attrs, :composite_trends, Dict()), ai, Dict())
-        hl_tracker = get(get(s.attrs, :hl_trackers, Dict()), ai, Dict())
-        qt_tracker = get(get(s.attrs, :qt_trackers, Dict()), ai, Dict())
+        composite = get(get(s.attrs, :composite_trends, Dict()), ii, Dict())
+        hl_tracker = get(get(s.attrs, :hl_trackers, Dict()), ii, Dict())
+        qt_tracker = get(get(s.attrs, :qt_trackers, Dict()), ii, Dict())
         
         # Validation checks
         validation_result = true
@@ -600,70 +601,70 @@ function validate_trend_signals!(s::SC, ai::AssetInstance, ats::DateTime)
         validation[:signal_reliability] = total_validations > 0 ? successful_validations / total_validations : 0.0
         validation[:last_validation] = ats
         
-        @debug "Trend signal validation completed" asset=ai valid=validation_result reliability=validation[:signal_reliability]
+        @debug "Trend signal validation completed" asset=ii valid=validation_result reliability=validation[:signal_reliability]
         
     catch e
-        @error "Failed to validate trend signals" asset=ai error=e
+        @error "Failed to validate trend signals" asset=ii error=e
     end
     
     nothing
 end
 
 """
-    update_position_tracking!(s::SC, ai::AssetInstance, ats::DateTime)
+    update_position_tracking!(s::SC, ii::InstrumentInstance, ats::DateTime)
 
 Update position-related tracking information.
 """
-function update_position_tracking!(s::SC, ai::AssetInstance, ats::DateTime)
+function update_position_tracking!(s::SC, ii::InstrumentInstance, ats::DateTime)
     # This would integrate with position management
     # For now, just update timestamp
     if !haskey(s.attrs, :position_tracking)
-        s[:position_tracking] = Dict{AssetInstance, Dict{Symbol, Any}}()
+        s[:position_tracking] = Dict{InstrumentInstance, Dict{Symbol, Any}}()
     end
     
-    if !haskey(s[:position_tracking], ai)
-        s[:position_tracking][ai] = Dict{Symbol, Any}()
+    if !haskey(s[:position_tracking], ii)
+        s[:position_tracking][ii] = Dict{Symbol, Any}()
     end
     
-    s[:position_tracking][ai][:last_update] = ats
+    s[:position_tracking][ii][:last_update] = ats
     
     nothing
 end
 
 """
-    update_signal_tracking!(s::SC, ai::AssetInstance, ats::DateTime)
+    update_signal_tracking!(s::SC, ii::InstrumentInstance, ats::DateTime)
 
 Update signal-related tracking information.
 """
-function update_signal_tracking!(s::SC, ai::AssetInstance, ats::DateTime)
+function update_signal_tracking!(s::SC, ii::InstrumentInstance, ats::DateTime)
     # This would integrate with signal generation
     # For now, just update timestamp
     if !haskey(s.attrs, :signal_tracking)
-        s[:signal_tracking] = Dict{AssetInstance, Dict{Symbol, Any}}()
+        s[:signal_tracking] = Dict{InstrumentInstance, Dict{Symbol, Any}}()
     end
     
-    if !haskey(s[:signal_tracking], ai)
-        s[:signal_tracking][ai] = Dict{Symbol, Any}()
+    if !haskey(s[:signal_tracking], ii)
+        s[:signal_tracking][ii] = Dict{Symbol, Any}()
     end
     
-    s[:signal_tracking][ai][:last_update] = ats
+    s[:signal_tracking][ii][:last_update] = ats
     
     nothing
 end
 
 """
-    get_trend_summary(s::SC, ai::AssetInstance)
+    get_trend_summary(s::SC, ii::InstrumentInstance)
 
 Get a comprehensive summary of trend analysis for an asset.
 """
-function get_trend_summary(s::SC, ai::AssetInstance)
-    hl_tracker = get(get(s.attrs, :hl_trackers, Dict()), ai, Dict())
-    qt_tracker = get(get(s.attrs, :qt_trackers, Dict()), ai, Dict())
-    composite = get(get(s.attrs, :composite_trends, Dict()), ai, Dict())
-    validation = get(get(s.attrs, :trend_validation, Dict()), ai, Dict())
+function get_trend_summary(s::SC, ii::InstrumentInstance)
+    hl_tracker = get(get(s.attrs, :hl_trackers, Dict()), ii, Dict())
+    qt_tracker = get(get(s.attrs, :qt_trackers, Dict()), ii, Dict())
+    composite = get(get(s.attrs, :composite_trends, Dict()), ii, Dict())
+    validation = get(get(s.attrs, :trend_validation, Dict()), ii, Dict())
     
     return Dict{Symbol, Any}(
-        :asset => ai,
+        :asset => ii,
         :overall_trend => get(composite, :overall_trend, :neutral),
         :trend_strength => get(composite, :trend_strength, 0.0),
         :trend_confidence => get(composite, :trend_confidence, 0.0),
@@ -681,12 +682,12 @@ function get_trend_summary(s::SC, ai::AssetInstance)
 end
 
 """
-    get_breakout_signals(s::SC, ai::AssetInstance; limit::Int = 10)
+    get_breakout_signals(s::SC, ii::InstrumentInstance; limit::Int = 10)
 
 Get recent breakout signals for an asset.
 """
-function get_breakout_signals(s::SC, ai::AssetInstance; limit::Int = 10)
-    hl_tracker = get(get(s.attrs, :hl_trackers, Dict()), ai, Dict())
+function get_breakout_signals(s::SC, ii::InstrumentInstance; limit::Int = 10)
+    hl_tracker = get(get(s.attrs, :hl_trackers, Dict()), ii, Dict())
     breakout_signals = get(hl_tracker, :breakout_signals, CircularBuffer{Tuple{DateTime, Symbol, Float64}}(50))
     
     # Return the most recent signals
@@ -697,7 +698,7 @@ function get_breakout_signals(s::SC, ai::AssetInstance; limit::Int = 10)
             :timestamp => signal[1],
             :type => signal[2],
             :price => signal[3],
-            :asset => ai
+            :asset => ii
         )
         for signal in recent_signals
     ]

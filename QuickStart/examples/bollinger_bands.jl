@@ -23,12 +23,12 @@ function setsignals!(s)
 end
 
 # Approach 1: Mean Reversion Strategy
-function isbuy_mean_reversion(s::SC, ai, ats)
+function isbuy_mean_reversion(s::SC, ii, ats)
     # Get Bollinger Band values
-    bb_upper = signal_value(s, ai, :bb_upper, ats)
-    bb_middle = signal_value(s, ai, :bb_middle, ats)
-    bb_lower = signal_value(s, ai, :bb_lower, ats)
-    rsi = signal_value(s, ai, :rsi, ats)
+    bb_upper = signal_value(s, ii, :bb_upper, ats)
+    bb_middle = signal_value(s, ii, :bb_middle, ats)
+    bb_lower = signal_value(s, ii, :bb_lower, ats)
+    rsi = signal_value(s, ii, :rsi, ats)
     
     # Validate signals
     if any(isnothing, [bb_upper, bb_middle, bb_lower, rsi])
@@ -36,7 +36,7 @@ function isbuy_mean_reversion(s::SC, ai, ats)
     end
     
     # Get current price
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     current_price = data.close[idx]
     
@@ -49,12 +49,12 @@ function isbuy_mean_reversion(s::SC, ai, ats)
     return price_at_lower_band && rsi_oversold
 end
 
-function issell_mean_reversion(s::SC, ai, ats)
+function issell_mean_reversion(s::SC, ii, ats)
     # Get Bollinger Band values
-    bb_upper = signal_value(s, ai, :bb_upper, ats)
-    bb_middle = signal_value(s, ai, :bb_middle, ats)
-    bb_lower = signal_value(s, ai, :bb_lower, ats)
-    rsi = signal_value(s, ai, :rsi, ats)
+    bb_upper = signal_value(s, ii, :bb_upper, ats)
+    bb_middle = signal_value(s, ii, :bb_middle, ats)
+    bb_lower = signal_value(s, ii, :bb_lower, ats)
+    rsi = signal_value(s, ii, :rsi, ats)
     
     # Validate signals
     if any(isnothing, [bb_upper, bb_middle, bb_lower, rsi])
@@ -62,7 +62,7 @@ function issell_mean_reversion(s::SC, ai, ats)
     end
     
     # Get current price
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     current_price = data.close[idx]
     
@@ -77,12 +77,12 @@ function issell_mean_reversion(s::SC, ai, ats)
 end
 
 # Approach 2: Breakout Strategy
-function isbuy_breakout(s::SC, ai, ats)
+function isbuy_breakout(s::SC, ii, ats)
     # Get Bollinger Band values
-    bb_upper = signal_value(s, ai, :bb_upper, ats)
-    bb_lower = signal_value(s, ai, :bb_lower, ats)
-    bb_width = signal_value(s, ai, :bb_width, ats)
-    volume_ma = signal_value(s, ai, :volume_ma, ats)
+    bb_upper = signal_value(s, ii, :bb_upper, ats)
+    bb_lower = signal_value(s, ii, :bb_lower, ats)
+    bb_width = signal_value(s, ii, :bb_width, ats)
+    volume_ma = signal_value(s, ii, :volume_ma, ats)
     
     # Validate signals
     if any(isnothing, [bb_upper, bb_lower, bb_width, volume_ma])
@@ -90,7 +90,7 @@ function isbuy_breakout(s::SC, ai, ats)
     end
     
     # Get current price and volume
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     current_price = data.close[idx]
     current_volume = data.volume[idx]
@@ -106,11 +106,11 @@ function isbuy_breakout(s::SC, ai, ats)
     return price_breakout && bands_not_too_wide && volume_confirmation
 end
 
-function issell_breakout(s::SC, ai, ats)
+function issell_breakout(s::SC, ii, ats)
     # Get Bollinger Band values
-    bb_upper = signal_value(s, ai, :bb_upper, ats)
-    bb_lower = signal_value(s, ai, :bb_lower, ats)
-    bb_middle = signal_value(s, ai, :bb_middle, ats)
+    bb_upper = signal_value(s, ii, :bb_upper, ats)
+    bb_lower = signal_value(s, ii, :bb_lower, ats)
+    bb_middle = signal_value(s, ii, :bb_middle, ats)
     
     # Validate signals
     if any(isnothing, [bb_upper, bb_lower, bb_middle])
@@ -118,7 +118,7 @@ function issell_breakout(s::SC, ai, ats)
     end
     
     # Get current price
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     current_price = data.close[idx]
     
@@ -132,11 +132,11 @@ function issell_breakout(s::SC, ai, ats)
 end
 
 # Approach 3: Squeeze Strategy (Low Volatility Breakout)
-function isbuy_squeeze(s::SC, ai, ats)
+function isbuy_squeeze(s::SC, ii, ats)
     # Get Bollinger Band values
-    bb_upper = signal_value(s, ai, :bb_upper, ats)
-    bb_lower = signal_value(s, ai, :bb_lower, ats)
-    bb_middle = signal_value(s, ai, :bb_middle, ats)
+    bb_upper = signal_value(s, ii, :bb_upper, ats)
+    bb_lower = signal_value(s, ii, :bb_lower, ats)
+    bb_middle = signal_value(s, ii, :bb_middle, ats)
     
     # Validate signals
     if any(isnothing, [bb_upper, bb_lower, bb_middle])
@@ -147,7 +147,7 @@ function isbuy_squeeze(s::SC, ai, ats)
     band_width_pct = ((bb_upper - bb_lower) / bb_middle) * 100
     
     # Get current price
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     current_price = data.close[idx]
     
@@ -162,9 +162,9 @@ function isbuy_squeeze(s::SC, ai, ats)
     
     for i in (idx-19):idx
         prev_ats = data.timestamp[i]
-        prev_upper = signal_value(s, ai, :bb_upper, prev_ats)
-        prev_lower = signal_value(s, ai, :bb_lower, prev_ats)
-        prev_middle = signal_value(s, ai, :bb_middle, prev_ats)
+        prev_upper = signal_value(s, ii, :bb_upper, prev_ats)
+        prev_lower = signal_value(s, ii, :bb_lower, prev_ats)
+        prev_middle = signal_value(s, ii, :bb_middle, prev_ats)
         
         if !any(isnothing, [prev_upper, prev_lower, prev_middle])
             avg_band_width += ((prev_upper - prev_lower) / prev_middle) * 100
@@ -187,11 +187,11 @@ function isbuy_squeeze(s::SC, ai, ats)
     return squeeze_detected && bullish_breakout
 end
 
-function issell_squeeze(s::SC, ai, ats)
+function issell_squeeze(s::SC, ii, ats)
     # Get Bollinger Band values
-    bb_upper = signal_value(s, ai, :bb_upper, ats)
-    bb_lower = signal_value(s, ai, :bb_lower, ats)
-    bb_middle = signal_value(s, ai, :bb_middle, ats)
+    bb_upper = signal_value(s, ii, :bb_upper, ats)
+    bb_lower = signal_value(s, ii, :bb_lower, ats)
+    bb_middle = signal_value(s, ii, :bb_middle, ats)
     
     # Validate signals
     if any(isnothing, [bb_upper, bb_lower, bb_middle])
@@ -199,7 +199,7 @@ function issell_squeeze(s::SC, ai, ats)
     end
     
     # Get current price
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     current_price = data.close[idx]
     
@@ -213,26 +213,26 @@ function issell_squeeze(s::SC, ai, ats)
 end
 
 # Default implementation - choose your preferred approach
-function isbuy(s::SC, ai, ats)
+function isbuy(s::SC, ii, ats)
     # Use mean reversion approach by default
-    return isbuy_mean_reversion(s, ai, ats)
+    return isbuy_mean_reversion(s, ii, ats)
     
     # Alternative: Use breakout approach
-    # return isbuy_breakout(s, ai, ats)
+    # return isbuy_breakout(s, ii, ats)
     
     # Alternative: Use squeeze approach
-    # return isbuy_squeeze(s, ai, ats)
+    # return isbuy_squeeze(s, ii, ats)
 end
 
-function issell(s::SC, ai, ats)
+function issell(s::SC, ii, ats)
     # Use mean reversion approach by default
-    return issell_mean_reversion(s, ai, ats)
+    return issell_mean_reversion(s, ii, ats)
     
     # Alternative: Use breakout approach
-    # return issell_breakout(s, ai, ats)
+    # return issell_breakout(s, ii, ats)
     
     # Alternative: Use squeeze approach
-    # return issell_squeeze(s, ai, ats)
+    # return issell_squeeze(s, ii, ats)
 end
 
 # Customization Options:

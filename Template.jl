@@ -18,7 +18,7 @@ end
 
 function call!(s::SC, ts::DateTime, _)
     ats = available(s.timeframe, ts)
-    foreach(s.universe) do ai
+    foreach(s.universe) do ii
         nothing
     end
 end

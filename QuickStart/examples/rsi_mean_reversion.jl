@@ -17,9 +17,9 @@ function setsignals!(s)
     inittrends!(s, keys(sigdefs.defs))
 end
 
-function isbuy(s::SC, ai, ats)
+function isbuy(s::SC, ii, ats)
     # Get RSI value
-    rsi = signal_value(s, ai, :rsi, ats)
+    rsi = signal_value(s, ii, :rsi, ats)
     
     # Validate signal
     if isnothing(rsi)
@@ -30,9 +30,9 @@ function isbuy(s::SC, ai, ats)
     return rsi < 30
 end
 
-function issell(s::SC, ai, ats)
+function issell(s::SC, ii, ats)
     # Get RSI value
-    rsi = signal_value(s, ai, :rsi, ats)
+    rsi = signal_value(s, ii, :rsi, ats)
     
     # Validate signal
     if isnothing(rsi)
@@ -44,17 +44,17 @@ function issell(s::SC, ai, ats)
 end
 
 # Enhanced version with trend filter
-function isbuy_with_trend_filter(s::SC, ai, ats)
+function isbuy_with_trend_filter(s::SC, ii, ats)
     # Get RSI and trend values
-    rsi = signal_value(s, ai, :rsi, ats)
-    trend_ma = signal_value(s, ai, :trend_ma, ats)
+    rsi = signal_value(s, ii, :rsi, ats)
+    trend_ma = signal_value(s, ii, :trend_ma, ats)
     
     if isnothing(rsi) || isnothing(trend_ma)
         return false
     end
     
     # Get current price for trend comparison
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     current_price = data.close[idx]
     
@@ -62,17 +62,17 @@ function isbuy_with_trend_filter(s::SC, ai, ats)
     return rsi < 30 && current_price > trend_ma
 end
 
-function issell_with_trend_filter(s::SC, ai, ats)
+function issell_with_trend_filter(s::SC, ii, ats)
     # Get RSI and trend values
-    rsi = signal_value(s, ai, :rsi, ats)
-    trend_ma = signal_value(s, ai, :trend_ma, ats)
+    rsi = signal_value(s, ii, :rsi, ats)
+    trend_ma = signal_value(s, ii, :trend_ma, ats)
     
     if isnothing(rsi) || isnothing(trend_ma)
         return false
     end
     
     # Get current price for trend comparison
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     current_price = data.close[idx]
     
@@ -81,8 +81,8 @@ function issell_with_trend_filter(s::SC, ai, ats)
 end
 
 # Advanced version with RSI divergence detection
-function isbuy_with_divergence(s::SC, ai, ats)
-    rsi = signal_value(s, ai, :rsi, ats)
+function isbuy_with_divergence(s::SC, ii, ats)
+    rsi = signal_value(s, ii, :rsi, ats)
     
     if isnothing(rsi)
         return false
@@ -94,7 +94,7 @@ function isbuy_with_divergence(s::SC, ai, ats)
     end
     
     # Check for bullish divergence (price makes lower low, RSI makes higher low)
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     
     if idx < 20  # Need sufficient history
@@ -108,7 +108,7 @@ function isbuy_with_divergence(s::SC, ai, ats)
     # Find recent price low and corresponding RSI
     price_low_idx = argmin(data.low[start_idx:idx]) + start_idx - 1
     price_low = data.low[price_low_idx]
-    rsi_at_price_low = signal_value(s, ai, :rsi, data.timestamp[price_low_idx])
+    rsi_at_price_low = signal_value(s, ii, :rsi, data.timestamp[price_low_idx])
     
     if isnothing(rsi_at_price_low)
         return rsi < 25
@@ -122,8 +122,8 @@ function isbuy_with_divergence(s::SC, ai, ats)
     return rsi < 30 && (rsi < 25 || bullish_divergence)
 end
 
-function issell_with_divergence(s::SC, ai, ats)
-    rsi = signal_value(s, ai, :rsi, ats)
+function issell_with_divergence(s::SC, ii, ats)
+    rsi = signal_value(s, ii, :rsi, ats)
     
     if isnothing(rsi)
         return false
@@ -135,7 +135,7 @@ function issell_with_divergence(s::SC, ai, ats)
     end
     
     # Check for bearish divergence (price makes higher high, RSI makes lower high)
-    data = ohlcv(ai)
+    data = ohlcv(ii)
     idx = dateindex(data, ats)
     
     if idx < 20  # Need sufficient history
@@ -149,7 +149,7 @@ function issell_with_divergence(s::SC, ai, ats)
     # Find recent price high and corresponding RSI
     price_high_idx = argmax(data.high[start_idx:idx]) + start_idx - 1
     price_high = data.high[price_high_idx]
-    rsi_at_price_high = signal_value(s, ai, :rsi, data.timestamp[price_high_idx])
+    rsi_at_price_high = signal_value(s, ii, :rsi, data.timestamp[price_high_idx])
     
     if isnothing(rsi_at_price_high)
         return rsi > 75

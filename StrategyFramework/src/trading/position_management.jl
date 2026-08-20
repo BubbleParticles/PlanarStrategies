@@ -2,29 +2,30 @@
 # Handles position sizing, volatility adjustments, and risk-based calculations
 
 using Statistics
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 using Planar
 
 """
-    calculate_position_adjustment(s::SC, ai::AssetInstance, ats::DateTime)
+    calculate_position_adjustment(s::SC, ii::InstrumentInstance, ats::DateTime)
 
 Calculate position size adjustment based on volatility indicators (ATR, KAMA, VTX).
 Returns a multiplier that adjusts the base position size based on market conditions.
 
 # Arguments
 - `s::SC`: Strategy instance
-- `ai::AssetInstance`: Asset instance
+- `ii::InstrumentInstance`: Instrument instance
 - `ats::DateTime`: Current timestamp
 
 # Returns
 - Float64: Position adjustment multiplier (typically 0.5 to 2.0)
 """
-function calculate_position_adjustment(s::SC, ai::AssetInstance, ats::DateTime)
+function calculate_position_adjustment(s::SC, ii::InstrumentInstance, ats::DateTime)
     try
         # Get OHLCV data for calculations
-        ohlcv = s.universe[ai]
+        ohlcv = s.universe[ii]
         if isempty(ohlcv)
-            @warn "No OHLCV data available for position adjustment calculation" ai=ai
+            @warn "No OHLCV data available for position adjustment calculation" ii=ii
             return 1.0
         end
         
@@ -61,7 +62,7 @@ function calculate_position_adjustment(s::SC, ai::AssetInstance, ats::DateTime)
         return clamp(combined_adjustment, 0.2, 3.0)
         
     catch e
-        @error "Error calculating position adjustment" ai=ai error=e
+        @error "Error calculating position adjustment" ii=ii error=e
         return 1.0  # Safe fallback
     end
 end
@@ -235,34 +236,34 @@ function calculate_vtx_adjustment(highs, lows, closes, volumes, period::Int = 14
 end
 
 """
-    get_target_position_size(s::SC, ai::AssetInstance, ps::PositionSide, ats::DateTime)
+    get_target_position_size(s::SC, ii::InstrumentInstance, ps::PositionSide, ats::DateTime)
 
 Calculate target position size with dynamic adjustments based on market conditions.
 Considers volatility, trend strength, and risk management parameters.
 
 # Arguments
 - `s::SC`: Strategy instance
-- `ai::AssetInstance`: Asset instance
+- `ii::InstrumentInstance`: Instrument instance
 - `ps::PositionSide`: Position side (Long/Short)
 - `ats::DateTime`: Current timestamp
 
 # Returns
 - Float64: Target position size in base currency
 """
-function get_target_position_size(s::SC, ai::AssetInstance, ps::PositionSide, ats::DateTime)
+function get_target_position_size(s::SC, ii::InstrumentInstance, ps::PositionSide, ats::DateTime)
     try
         # Get base position size from strategy configuration
-        base_size = get_base_position_size(s, ai)
+        base_size = get_base_position_size(s, ii)
         
         if base_size <= 0
             return 0.0
         end
         
         # Apply volatility and trend adjustments
-        adjustment_multiplier = calculate_position_adjustment(s, ai, ats)
+        adjustment_multiplier = calculate_position_adjustment(s, ii, ats)
         
         # Apply risk management adjustments
-        risk_multiplier = calculate_risk_multiplier(s, ai, ats)
+        risk_multiplier = calculate_risk_multiplier(s, ii, ats)
         
         # Apply drawdown adjustments
         drawdown_multiplier = calculate_drawdown_multiplier(s)
@@ -271,11 +272,11 @@ function get_target_position_size(s::SC, ai::AssetInstance, ps::PositionSide, at
         target_size = base_size * adjustment_multiplier * risk_multiplier * drawdown_multiplier
         
         # Apply position limits
-        max_position = get_max_position_size(s, ai)
+        max_position = get_max_position_size(s, ii)
         target_size = min(target_size, max_position)
         
         # Ensure minimum position size if trading
-        min_position = get_min_position_size(s, ai)
+        min_position = get_min_position_size(s, ii)
         if target_size > 0 && target_size < min_position
             target_size = min_position
         end
@@ -283,35 +284,35 @@ function get_target_position_size(s::SC, ai::AssetInstance, ps::PositionSide, at
         return target_size
         
     catch e
-        @error "Error calculating target position size" ai=ai ps=ps error=e
+        @error "Error calculating target position size" ii=ii ps=ps error=e
         return 0.0
     end
 end
 
 """
-    get_base_position_size(s::SC, ai::AssetInstance)
+    get_base_position_size(s::SC, ii::InstrumentInstance)
 
 Get base position size from strategy configuration.
 """
-function get_base_position_size(s::SC, ai::AssetInstance)
+function get_base_position_size(s::SC, ii::InstrumentInstance)
     # Default base size as percentage of available cash
-    available_cash = cash(s, ai)
+    available_cash = cash(s, ii)
     base_pct = get(s.config, :base_position_pct, 0.1)  # 10% default
     
     return available_cash * base_pct
 end
 
 """
-    calculate_risk_multiplier(s::SC, ai::AssetInstance, ats::DateTime)
+    calculate_risk_multiplier(s::SC, ii::InstrumentInstance, ats::DateTime)
 
 Calculate risk-based position size multiplier.
 Reduces position size based on current risk exposure.
 """
-function calculate_risk_multiplier(s::SC, ai::AssetInstance, ats::DateTime)
+function calculate_risk_multiplier(s::SC, ii::InstrumentInstance, ats::DateTime)
     try
         # Calculate current portfolio risk
         total_exposure = 0.0
-        available_cash = cash(s, ai)
+        available_cash = cash(s, ii)
         
         # Sum up all position exposures
         for (asset, _) in s.universe
@@ -342,7 +343,7 @@ function calculate_risk_multiplier(s::SC, ai::AssetInstance, ats::DateTime)
         end
         
     catch e
-        @error "Error calculating risk multiplier" ai=ai error=e
+        @error "Error calculating risk multiplier" ii=ii error=e
         return 0.5  # Conservative fallback
     end
 end
@@ -357,7 +358,7 @@ function calculate_drawdown_multiplier(s::SC)
     try
         # Get peak cash and current cash
         peak_cash = get(s.config, :peak_cash, 0.0)
-        current_cash = sum(cash(s, ai) for (ai, _) in s.universe)
+        current_cash = sum(cash(s, ii) for (ii, _) in s.universe)
         
         if peak_cash <= 0
             return 1.0
@@ -384,69 +385,69 @@ function calculate_drawdown_multiplier(s::SC)
 end
 
 """
-    get_max_position_size(s::SC, ai::AssetInstance)
+    get_max_position_size(s::SC, ii::InstrumentInstance)
 
 Get maximum allowed position size for an asset.
 """
-function get_max_position_size(s::SC, ai::AssetInstance)
-    available_cash = cash(s, ai)
+function get_max_position_size(s::SC, ii::InstrumentInstance)
+    available_cash = cash(s, ii)
     max_pct = get(s.config, :max_position_pct, 0.25)  # 25% default
     
     return available_cash * max_pct
 end
 
 """
-    get_min_position_size(s::SC, ai::AssetInstance)
+    get_min_position_size(s::SC, ii::InstrumentInstance)
 
 Get minimum position size for an asset (exchange minimum).
 """
-function get_min_position_size(s::SC, ai::AssetInstance)
+function get_min_position_size(s::SC, ii::InstrumentInstance)
     # This should be based on exchange minimum order size
     # For now, use a reasonable default
     return get(s.config, :min_position_size, 10.0)  # $10 minimum
 end
 
 """
-    trade_amount(s::SC, ai::AssetInstance, ats::DateTime, ps::PositionSide)
+    trade_amount(s::SC, ii::InstrumentInstance, ats::DateTime, ps::PositionSide)
 
 Calculate the actual trade amount considering drawdown, available cash, and position limits.
 This is the final amount to be used for order placement.
 
 # Arguments
 - `s::SC`: Strategy instance
-- `ai::AssetInstance`: Asset instance
+- `ii::InstrumentInstance`: Instrument instance
 - `ats::DateTime`: Current timestamp
 - `ps::PositionSide`: Position side (Long/Short)
 
 # Returns
 - Float64: Trade amount in base currency
 """
-function trade_amount(s::SC, ai::AssetInstance, ats::DateTime, ps::PositionSide)
+function trade_amount(s::SC, ii::InstrumentInstance, ats::DateTime, ps::PositionSide)
     try
         # Get target position size
-        target_size = get_target_position_size(s, ai, ps, ats)
+        target_size = get_target_position_size(s, ii, ps, ats)
         
         if target_size <= 0
             return 0.0
         end
         
         # Get current position
-        current_position = haspositions(s, ai) ? abs(position(s, ai)) : 0.0
-        current_price = last(s.universe[ai].close)
+        current_position = haspositions(s, ii) ? abs(position(s, ii)) : 0.0
+        current_price = last(s.universe[ii].close)
         current_position_value = current_position * current_price
         
         # Calculate position difference
         position_diff = target_size - current_position_value
         
         # Only trade if difference is significant
-        min_trade_amount = get_min_position_size(s, ai)
+        min_trade_amount = get_min_position_size(s, ii)
         if abs(position_diff) < min_trade_amount
             return 0.0
         end
         
         # Check available cash for increasing positions
         if position_diff > 0
-            available_cash = cash(s, ai)
+            available_cash = cash(s, ii)
             reserve_pct = get(s.config, :reserve_cash_pct, 0.1)
             usable_cash = available_cash * (1.0 - reserve_pct)
             
@@ -465,12 +466,12 @@ function trade_amount(s::SC, ai::AssetInstance, ats::DateTime, ps::PositionSide)
         if current_price > 0
             trade_quantity = abs(position_diff) / current_price
         else
-            @warn "Invalid price for trade amount calculation" ai=ai price=current_price
+            @warn "Invalid price for trade amount calculation" ii=ii price=current_price
             return 0.0
         end
         
         # Apply exchange-specific minimums and increments
-        trade_quantity = normalize_trade_quantity(s, ai, trade_quantity)
+        trade_quantity = normalize_trade_quantity(s, ii, trade_quantity)
         
         # Convert back to base currency amount
         final_amount = trade_quantity * current_price
@@ -478,17 +479,17 @@ function trade_amount(s::SC, ai::AssetInstance, ats::DateTime, ps::PositionSide)
         return final_amount
         
     catch e
-        @error "Error calculating trade amount" ai=ai ps=ps error=e
+        @error "Error calculating trade amount" ii=ii ps=ps error=e
         return 0.0
     end
 end
 
 """
-    normalize_trade_quantity(s::SC, ai::AssetInstance, quantity::Float64)
+    normalize_trade_quantity(s::SC, ii::InstrumentInstance, quantity::Float64)
 
 Normalize trade quantity to exchange requirements.
 """
-function normalize_trade_quantity(s::SC, ai::AssetInstance, quantity::Float64)
+function normalize_trade_quantity(s::SC, ii::InstrumentInstance, quantity::Float64)
     try
         # Get exchange info (this would come from exchange configuration)
         # For now, use reasonable defaults
@@ -506,32 +507,32 @@ function normalize_trade_quantity(s::SC, ai::AssetInstance, quantity::Float64)
         return normalized
         
     catch e
-        @error "Error normalizing trade quantity" ai=ai quantity=quantity error=e
+        @error "Error normalizing trade quantity" ii=ii quantity=quantity error=e
         return 0.0
     end
 end
 
 """
-    should_adjust_position(s::SC, ai::AssetInstance, ats::DateTime)
+    should_adjust_position(s::SC, ii::InstrumentInstance, ats::DateTime)
 
 Determine if position should be adjusted based on current market conditions.
 """
-function should_adjust_position(s::SC, ai::AssetInstance, ats::DateTime)
+function should_adjust_position(s::SC, ii::InstrumentInstance, ats::DateTime)
     try
         # Check if enough time has passed since last adjustment
-        last_trade_time = get(s.config, :last_trade_time, Dict{AssetInstance, DateTime}())
+        last_trade_time = get(s.config, :last_trade_time, Dict{InstrumentInstance, DateTime}())
         cooldown = get(s.config, :trade_cooldown, Minute(5))
         
-        if haskey(last_trade_time, ai)
-            if ats - last_trade_time[ai] < cooldown
+        if haskey(last_trade_time, ii)
+            if ats - last_trade_time[ii] < cooldown
                 return false
             end
         end
         
         # Check if market conditions warrant adjustment
-        target_size = get_target_position_size(s, ai, Long(), ats)  # Use Long as default
-        current_position = haspositions(s, ai) ? abs(position(s, ai)) : 0.0
-        current_price = last(s.universe[ai].close)
+        target_size = get_target_position_size(s, ii, Long(), ats)  # Use Long as default
+        current_position = haspositions(s, ii) ? abs(position(s, ii)) : 0.0
+        current_price = last(s.universe[ii].close)
         current_position_value = current_position * current_price
         
         # Calculate percentage difference
@@ -545,7 +546,7 @@ function should_adjust_position(s::SC, ai::AssetInstance, ats::DateTime)
         return false
         
     catch e
-        @error "Error checking if position should be adjusted" ai=ai error=e
+        @error "Error checking if position should be adjusted" ii=ii error=e
         return false
     end
 end

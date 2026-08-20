@@ -1,6 +1,7 @@
 # Core types and constants for StrategyFramework
 
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 using Planar
 using PlanarStrategyTools: PlanarStrategyTools as stt
 using .stt: oti
@@ -44,16 +45,16 @@ end
 
 # Position tracking structure
 @kwdef mutable struct PositionTracker
-    extremas::Dict{AssetInstance, MovingExtrema} = Dict{AssetInstance, MovingExtrema}()
-    hl_trackers::Dict{AssetInstance, Tuple{Ref{DateTime}, WMA}} = Dict{AssetInstance, Tuple{Ref{DateTime}, WMA}}()
-    backoff::Dict{AssetInstance, DateTime} = Dict{AssetInstance, DateTime}()
-    uni_iter::Tuple{Vector{AssetInstance}, Ref{DateTime}} = (AssetInstance[], Ref(DateTime(0)))
+    extremas::Dict{InstrumentInstance, MovingExtrema} = Dict{InstrumentInstance, MovingExtrema}()
+    hl_trackers::Dict{InstrumentInstance, Tuple{Ref{DateTime}, WMA}} = Dict{InstrumentInstance, Tuple{Ref{DateTime}, WMA}}()
+    backoff::Dict{InstrumentInstance, DateTime} = Dict{InstrumentInstance, DateTime}()
+    uni_iter::Tuple{Vector{InstrumentInstance}, Ref{DateTime}} = (InstrumentInstance[], Ref(DateTime(0)))
 end
 
 # Performance metrics structure
 @kwdef mutable struct PerformanceMetrics
-    pnl_history::Dict{AssetInstance, CircularBuffer} = Dict{AssetInstance, CircularBuffer}()
-    trade_history::Dict{AssetInstance, Vector{Trade}} = Dict{AssetInstance, Vector{Trade}}()
+    pnl_history::Dict{InstrumentInstance, CircularBuffer} = Dict{InstrumentInstance, CircularBuffer}()
+    trade_history::Dict{InstrumentInstance, Vector{Trade}} = Dict{InstrumentInstance, Vector{Trade}}()
     peak_cash::Float64 = 0.0
     max_drawdown::Float64 = 0.0
     total_trades::Int = 0

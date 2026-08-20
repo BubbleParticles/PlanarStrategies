@@ -2,7 +2,8 @@
 # This test can be run independently without the full StrategyFramework
 
 using Test
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 
 # Mock the required constants and types for testing
 const PROFILING = Ref(false)

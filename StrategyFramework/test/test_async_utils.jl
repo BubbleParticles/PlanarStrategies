@@ -1,7 +1,8 @@
 # Unit tests for async utilities
 using Test
 using StrategyFramework
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 
 # Mock strategy type for testing
 struct MockStrategy

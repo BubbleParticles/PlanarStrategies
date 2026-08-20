@@ -43,14 +43,14 @@ function _tickers_watcher(s; view_capacity=1000, k=:tickers_watcher, tf=_timefra
         w.attrs[:quiet] = true
         w.attrs[:resync_noncontig] = true
         wv = w.view
-        for ai in s.universe
-            wv[ai.asset.raw] = ai.ohlcv
+        for ii in s.universe
+            wv[ii.asset.raw] = ii.ohlcv
         end
         w[:process_func] = () -> begin
             while isstarted(w)
-                for ai in s.universe
+                for ii in s.universe
                     try
-                        propagate_ohlcv!(ai.data)
+                        propagate_ohlcv!(ii.data)
                     catch
                     end
                 end
@@ -118,24 +118,24 @@ function select_ordertype(
     end
 end
 
-function select_orderkwargs(otsym::Symbol, ::Type{Buy}, ai, ats)
+function select_orderkwargs(otsym::Symbol, ::Type{Buy}, ii, ats)
     if otsym == :gtc
-        (; price=1.02 * closeat(ohlcv(ai), ats))
+        (; price=1.02 * closeat(ohlcv(ii), ats))
     else
         ()
     end
 end
 
-function select_orderkwargs(otsym::Symbol, ::Type{Sell}, ai, ats)
+function select_orderkwargs(otsym::Symbol, ::Type{Sell}, ii, ats)
     if otsym == :gtc
-        (; price=0.99 * closeat(ohlcv(ai), ats))
+        (; price=0.99 * closeat(ohlcv(ii), ats))
     else
         ()
     end
 end
 
-function closepair(s, ai, ats, tf=_timeframe(s))
-    data = ai.data[tf]
+function closepair(s, ii, ats, tf=_timeframe(s))
+    data = ii.data[tf]
     prev_date = ats - tf
     if data.timestamp[begin] > prev_date
         _thisclose!(s, nothing)

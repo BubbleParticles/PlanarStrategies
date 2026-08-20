@@ -1,16 +1,16 @@
-function call!(s::SC, o::Order, err::OrderError, ai::AssetInstance)
-    # @info 2 "surge: order error" o err ai
+function call!(s::SC, o::Order, err::OrderError, ii::InstrumentInstance)
+    # @info 2 "surge: order error" o err ii
     pside = posside(o)
     if err isa OrderCanceled
         return nothing
     end
-    if o isa ReduceOrder && isopen(ai, pside) && !iszero(cash(ai, pside))
-        @lwarn 1 "surge: trade failed" ai = raw(ai) position(ai) o
+    if o isa ReduceOrder && isopen(ii, pside) && !iszero(cash(ii, pside))
+        @lwarn 1 "surge: trade failed" ii = raw(ii) position(ii) o
         ts = apply(s.timeframe, o.date)
         ats = available(s.timeframe, ts)
-        amount = abs(cash(position(ai, pside)))
+        amount = abs(cash(position(ii, pside)))
         ot = select_ordertype(s, orderside(o), pside; t=:market)[1]
-        handle_fail(s, ai, ats, ts; pside, ot, amount)
+        handle_fail(s, ii, ats, ts; pside, ot, amount)
     end
 end
 

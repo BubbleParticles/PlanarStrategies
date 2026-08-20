@@ -86,11 +86,11 @@ function call!(s::SC{<:ExchangeID,Sim}, ::ResetStrategy)
     @assert hasproperty(ohlcv(first(s.universe), tf"1d"), :qqe) "is ohlcv at 1d timeframe available?"
 end
 
-function handler(s, ai, ats, date)
+function handler(s, ii, ats, date)
     # Calculate QQE indicator
-    call!(qqe!, s, ai, UpdateData(); cols=(:qqe,))
+    call!(qqe!, s, ii, UpdateData(); cols=(:qqe,))
 
-    data = ohlcv(ai, tf"1d")
+    data = ohlcv(ii, tf"1d")
     # Get trend direction
     v = data[ats, :qqe]
     trend = if v > 13.22
@@ -102,7 +102,7 @@ function handler(s, ai, ats, date)
     end
 
     # Get current exposure
-    pos = position(ai)
+    pos = position(ii)
     exposure = pos === nothing ? 0.0 : cash(pos)
     # If the position is short, the value is negative
     @assert iszero(exposure) ||
@@ -110,7 +110,7 @@ function handler(s, ai, ats, date)
         isshort(pos) && exposure <= 0.0
 
     # Define constants
-    target_size = ai.limits.cost.min * 10.0
+    target_size = ii.limits.cost.min * 10.0
 
     if trend > 0.0
         # Calculate target position size
@@ -122,14 +122,14 @@ function handler(s, ai, ats, date)
 
         if exposure < 0.0
             # close long position
-            call!(s, ai, Short(), date, PositionClose())
+            call!(s, ii, Short(), date, PositionClose())
         end
 
         # This check is not necessary, since the bot
         # validates the inputs. Calling call! with an amount too low
         # would make the call return `nothing`.
-        if amount * price > ai.limits.cost.min
-            call!(s, ai, MarketOrder{Buy}; amount=amount, date)
+        if amount * price > ii.limits.cost.min
+            call!(s, ii, MarketOrder{Buy}; amount=amount, date)
         end
 
     elseif trend < 0.0
@@ -142,20 +142,20 @@ function handler(s, ai, ats, date)
 
         if exposure > 0.0
             # close long position
-            call!(s, ai, Long(), date, PositionClose())
+            call!(s, ii, Long(), date, PositionClose())
         end
 
-        if amount * price < -ai.limits.cost.min
+        if amount * price < -ii.limits.cost.min
             # Submit sell order
-            call!(s, ai, ShortMarketOrder{Sell}; amount, date)
+            call!(s, ii, ShortMarketOrder{Sell}; amount, date)
         end
     end
 end
 
 function call!(s::SC, ts::DateTime, ctx)
     ats = available(s.timeframe, ts)
-    foreach(s.universe) do ai
-        handler(s, ai, ats, ts)
+    foreach(s.universe) do ii
+        handler(s, ii, ats, ts)
     end
 end
 

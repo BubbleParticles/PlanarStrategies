@@ -1,6 +1,7 @@
 # OHLCV data management for StrategyFramework
 
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 using Planar
 # Data, OHLCV, ohlcv, and fetch_ohlcv are already available via @strategyenv!()
 # Watchers functionality is available through the main strategy framework
@@ -46,8 +47,8 @@ function initohlcv!(s::SC)
     # Initialize OHLCV data for each asset
     for asset_str in assets
         try
-            ai = AssetInstance(asset_str, exchange)
-            init_asset_ohlcv!(s, ai, method)
+            ii = InstrumentInstance(asset_str, exchange)
+            init_asset_ohlcv!(s, ii, method)
         catch e
             @error "Failed to initialize OHLCV for asset" asset=asset_str error=e
         end
@@ -63,12 +64,12 @@ function initohlcv!(s::SC)
 end
 
 """
-    init_asset_ohlcv!(s::SC, ai::AssetInstance, method::Symbol)
+    init_asset_ohlcv!(s::SC, ii::InstrumentInstance, method::Symbol)
 
 Initialize OHLCV data for a specific asset instance.
 """
-function init_asset_ohlcv!(s::SC, ai::AssetInstance, method::Symbol)
-    @debug "Initializing OHLCV for asset" asset=ai method=method
+function init_asset_ohlcv!(s::SC, ii::InstrumentInstance, method::Symbol)
+    @debug "Initializing OHLCV for asset" asset=ii method=method
     
     # In Planar, OHLCV data is managed by the LiveMode watchers
     # For simulation mode, data is loaded via load_ohlcv or stub!
@@ -76,8 +77,8 @@ function init_asset_ohlcv!(s::SC, ai::AssetInstance, method::Symbol)
     
     try
         # Validate asset availability
-        if !validate_asset_availability(ai)
-            @warn "Asset not available for OHLCV data" asset=ai
+        if !validate_asset_availability(ii)
+            @warn "Instrument not available for OHLCV data" asset=ii
             return nothing
         end
         
@@ -86,10 +87,10 @@ function init_asset_ohlcv!(s::SC, ai::AssetInstance, method::Symbol)
         # - SimMode/PaperMode: load_ohlcv or stub!
         # We just ensure the tracking structures exist
         
-        @debug "OHLCV initialization complete" asset=ai method=method
+        @debug "OHLCV initialization complete" asset=ii method=method
         
     catch e
-        @error "Failed to initialize OHLCV for asset" asset=ai error=e
+        @error "Failed to initialize OHLCV for asset" asset=ii error=e
         rethrow(e)
     end
     
@@ -97,14 +98,14 @@ function init_asset_ohlcv!(s::SC, ai::AssetInstance, method::Symbol)
 end
 
 """
-    validate_asset_availability(ai::AssetInstance)
+    validate_asset_availability(ii::InstrumentInstance)
 
 Validate that an asset is available for data fetching.
 """
-function validate_asset_availability(ai::AssetInstance)
+function validate_asset_availability(ii::InstrumentInstance)
     try
         # Basic validation - check if asset instance is valid
-        if isnothing(ai.asset) || isnothing(ai.exchange)
+        if isnothing(ii.asset) || isnothing(ii.exchange)
             return false
         end
         
@@ -118,40 +119,40 @@ function validate_asset_availability(ai::AssetInstance)
 end
 
 """
-    validate_initial_ohlcv!(s::SC, ai::AssetInstance)
+    validate_initial_ohlcv!(s::SC, ii::InstrumentInstance)
 
 Validate that initial OHLCV data is available and not stale.
 """
-function validate_initial_ohlcv!(s::SC, ai::AssetInstance)
-    ohlcv_data = get(get(s.attrs, :ohlcv_data, Dict()), ai, nothing)
+function validate_initial_ohlcv!(s::SC, ii::InstrumentInstance)
+    ohlcv_data = get(get(s.attrs, :ohlcv_data, Dict()), ii, nothing)
     
     if isnothing(ohlcv_data) || isempty(ohlcv_data)
-        @warn "No OHLCV data available for validation" asset=ai
+        @warn "No OHLCV data available for validation" asset=ii
         return false
     end
     
     # Check data staleness
-    if !check_ohlcv_freshness(ohlcv_data, ai)
-        @warn "OHLCV data is stale" asset=ai
+    if !check_ohlcv_freshness(ohlcv_data, ii)
+        @warn "OHLCV data is stale" asset=ii
         return false
     end
     
     # Check data continuity
-    if !check_ohlcv_continuity(ohlcv_data, ai)
-        @warn "OHLCV data has gaps" asset=ai
+    if !check_ohlcv_continuity(ohlcv_data, ii)
+        @warn "OHLCV data has gaps" asset=ii
         return false
     end
     
-    @debug "OHLCV data validation passed" asset=ai
+    @debug "OHLCV data validation passed" asset=ii
     return true
 end
 
 """
-    check_ohlcv_freshness(ohlcv_data, ai::AssetInstance; max_age::Period = Hour(1))
+    check_ohlcv_freshness(ohlcv_data, ii::InstrumentInstance; max_age::Period = Hour(1))
 
 Check if OHLCV data is fresh (not too old).
 """
-function check_ohlcv_freshness(ohlcv_data, ai::AssetInstance; max_age::Period = Hour(1))
+function check_ohlcv_freshness(ohlcv_data, ii::InstrumentInstance; max_age::Period = Hour(1))
     try
         if isempty(ohlcv_data)
             return false
@@ -171,23 +172,23 @@ function check_ohlcv_freshness(ohlcv_data, ai::AssetInstance; max_age::Period = 
         is_fresh = age <= max_age
         
         if !is_fresh
-            @debug "OHLCV data is stale" asset=ai age=age max_age=max_age
+            @debug "OHLCV data is stale" asset=ii age=age max_age=max_age
         end
         
         return is_fresh
         
     catch e
-        @error "Failed to check OHLCV freshness" asset=ai error=e
+        @error "Failed to check OHLCV freshness" asset=ii error=e
         return false
     end
 end
 
 """
-    check_ohlcv_continuity(ohlcv_data, ai::AssetInstance)
+    check_ohlcv_continuity(ohlcv_data, ii::InstrumentInstance)
 
 Check if OHLCV data has reasonable continuity (no major gaps).
 """
-function check_ohlcv_continuity(ohlcv_data, ai::AssetInstance)
+function check_ohlcv_continuity(ohlcv_data, ii::InstrumentInstance)
     try
         if length(ohlcv_data) < 2
             return true  # Can't check continuity with less than 2 points
@@ -215,11 +216,11 @@ function check_ohlcv_continuity(ohlcv_data, ai::AssetInstance)
             return true
         end
         
-        @debug "OHLCV continuity check passed" asset=ai data_points=length(ohlcv_data)
+        @debug "OHLCV continuity check passed" asset=ii data_points=length(ohlcv_data)
         return true
         
     catch e
-        @error "Failed to check OHLCV continuity" asset=ai error=e
+        @error "Failed to check OHLCV continuity" asset=ii error=e
         return false
     end
 end
@@ -235,13 +236,13 @@ function setup_data_watchers!(s::SC, assets::Vector{String}, exchange::Symbol)
     try
         # Initialize watcher tracking
         if !haskey(s.attrs, :data_watchers)
-            s[:data_watchers] = Dict{AssetInstance, Any}()
+            s[:data_watchers] = Dict{InstrumentInstance, Any}()
         end
         
         # Setup watcher for each asset
         for asset_str in assets
-            ai = AssetInstance(asset_str, exchange)
-            setup_asset_watcher!(s, ai)
+            ii = InstrumentInstance(asset_str, exchange)
+            setup_asset_watcher!(s, ii)
         end
         
         @debug "Data watchers setup complete"
@@ -254,11 +255,11 @@ function setup_data_watchers!(s::SC, assets::Vector{String}, exchange::Symbol)
 end
 
 """
-    setup_asset_watcher!(s::SC, ai::AssetInstance)
+    setup_asset_watcher!(s::SC, ii::InstrumentInstance)
 
 Setup data watcher for a specific asset.
 """
-function setup_asset_watcher!(s::SC, ai::AssetInstance)
+function setup_asset_watcher!(s::SC, ii::InstrumentInstance)
     try
         # Get timeframe
         tf = get(s.attrs, :timeframe, TF)
@@ -266,18 +267,18 @@ function setup_asset_watcher!(s::SC, ai::AssetInstance)
         # Start watcher (this would integrate with Planar's watcher system)
         # For now, we'll store a placeholder reference
         watcher_ref = Dict(
-            :asset => ai,
+            :asset => ii,
             :timeframe => tf,
             :started_at => now(),
             :status => :active
         )
         
-        s[:data_watchers][ai] = watcher_ref
+        s[:data_watchers][ii] = watcher_ref
         
-        @debug "Asset watcher setup" asset=ai timeframe=tf
+        @debug "Instrument watcher setup" asset=ii timeframe=tf
         
     catch e
-        @error "Failed to setup asset watcher" asset=ai error=e
+        @error "Failed to setup asset watcher" asset=ii error=e
     end
     
     nothing
@@ -293,17 +294,17 @@ function init_data_tracking!(s::SC)
     
     # Initialize OHLCV staleness tracking
     if !haskey(s.attrs, :ohlcv_last_update)
-        s[:ohlcv_last_update] = Dict{AssetInstance, DateTime}()
+        s[:ohlcv_last_update] = Dict{InstrumentInstance, DateTime}()
     end
     
     # Initialize data quality metrics
     if !haskey(s.attrs, :data_quality_metrics)
-        s[:data_quality_metrics] = Dict{AssetInstance, Dict{Symbol, Any}}()
+        s[:data_quality_metrics] = Dict{InstrumentInstance, Dict{Symbol, Any}}()
     end
     
     # Initialize data validation history
     if !haskey(s.attrs, :data_validation_history)
-        s[:data_validation_history] = Dict{AssetInstance, Vector{Tuple{DateTime, Bool, String}}}()
+        s[:data_validation_history] = Dict{InstrumentInstance, Vector{Tuple{DateTime, Bool, String}}}()
     end
     
     @debug "Data tracking structures initialized"
@@ -311,26 +312,26 @@ function init_data_tracking!(s::SC)
 end
 
 """
-    update_ohlcv_timestamp!(s::SC, ai::AssetInstance, timestamp::DateTime)
+    update_ohlcv_timestamp!(s::SC, ii::InstrumentInstance, timestamp::DateTime)
 
 Update the last OHLCV update timestamp for an asset.
 """
-function update_ohlcv_timestamp!(s::SC, ai::AssetInstance, timestamp::DateTime)
+function update_ohlcv_timestamp!(s::SC, ii::InstrumentInstance, timestamp::DateTime)
     if !haskey(s.attrs, :ohlcv_last_update)
-        s[:ohlcv_last_update] = Dict{AssetInstance, DateTime}()
+        s[:ohlcv_last_update] = Dict{InstrumentInstance, DateTime}()
     end
     
-    s[:ohlcv_last_update][ai] = timestamp
+    s[:ohlcv_last_update][ii] = timestamp
     nothing
 end
 
 """
-    get_ohlcv_staleness(s::SC, ai::AssetInstance)
+    get_ohlcv_staleness(s::SC, ii::InstrumentInstance)
 
 Get the staleness (age) of OHLCV data for an asset.
 """
-function get_ohlcv_staleness(s::SC, ai::AssetInstance)
-    last_update = get(get(s.attrs, :ohlcv_last_update, Dict()), ai, DateTime(0))
+function get_ohlcv_staleness(s::SC, ii::InstrumentInstance)
+    last_update = get(get(s.attrs, :ohlcv_last_update, Dict()), ii, DateTime(0))
     
     if last_update == DateTime(0)
         return nothing  # No data available
@@ -340,12 +341,12 @@ function get_ohlcv_staleness(s::SC, ai::AssetInstance)
 end
 
 """
-    is_ohlcv_stale(s::SC, ai::AssetInstance; max_age::Period = Hour(1))
+    is_ohlcv_stale(s::SC, ii::InstrumentInstance; max_age::Period = Hour(1))
 
 Check if OHLCV data for an asset is stale.
 """
-function is_ohlcv_stale(s::SC, ai::AssetInstance; max_age::Period = Hour(1))
-    staleness = get_ohlcv_staleness(s, ai)
+function is_ohlcv_stale(s::SC, ii::InstrumentInstance; max_age::Period = Hour(1))
+    staleness = get_ohlcv_staleness(s, ii)
     
     if isnothing(staleness)
         return true  # No data is considered stale
@@ -355,14 +356,14 @@ function is_ohlcv_stale(s::SC, ai::AssetInstance; max_age::Period = Hour(1))
 end
 
 """
-    validate_ohlcv_data(s::SC, ai::AssetInstance)
+    validate_ohlcv_data(s::SC, ii::InstrumentInstance)
 
 Comprehensive validation of OHLCV data for an asset.
 """
-function validate_ohlcv_data(s::SC, ai::AssetInstance)
+function validate_ohlcv_data(s::SC, ii::InstrumentInstance)
     validation_result = Dict{Symbol, Any}(
         :timestamp => now(),
-        :asset => ai,
+        :asset => ii,
         :is_valid => false,
         :checks => Dict{Symbol, Bool}(),
         :errors => String[]
@@ -370,7 +371,7 @@ function validate_ohlcv_data(s::SC, ai::AssetInstance)
     
     try
         # Check data availability
-        ohlcv_data = get(get(s.attrs, :ohlcv_data, Dict()), ai, nothing)
+        ohlcv_data = get(get(s.attrs, :ohlcv_data, Dict()), ii, nothing)
         if isnothing(ohlcv_data) || isempty(ohlcv_data)
             push!(validation_result[:errors], "No OHLCV data available")
             validation_result[:checks][:availability] = false
@@ -379,7 +380,7 @@ function validate_ohlcv_data(s::SC, ai::AssetInstance)
         end
         
         # Check data freshness
-        is_fresh = !is_ohlcv_stale(s, ai)
+        is_fresh = !is_ohlcv_stale(s, ii)
         validation_result[:checks][:freshness] = is_fresh
         if !is_fresh
             push!(validation_result[:errors], "OHLCV data is stale")
@@ -387,7 +388,7 @@ function validate_ohlcv_data(s::SC, ai::AssetInstance)
         
         # Check data continuity
         if !isnothing(ohlcv_data)
-            is_continuous = check_ohlcv_continuity(ohlcv_data, ai)
+            is_continuous = check_ohlcv_continuity(ohlcv_data, ii)
             validation_result[:checks][:continuity] = is_continuous
             if !is_continuous
                 push!(validation_result[:errors], "OHLCV data has continuity issues")
@@ -399,23 +400,23 @@ function validate_ohlcv_data(s::SC, ai::AssetInstance)
         
         # Store validation result
         if !haskey(s.attrs, :data_validation_history)
-            s[:data_validation_history] = Dict{AssetInstance, Vector{Tuple{DateTime, Bool, String}}}()
+            s[:data_validation_history] = Dict{InstrumentInstance, Vector{Tuple{DateTime, Bool, String}}}()
         end
         
-        if !haskey(s[:data_validation_history], ai)
-            s[:data_validation_history][ai] = Tuple{DateTime, Bool, String}[]
+        if !haskey(s[:data_validation_history], ii)
+            s[:data_validation_history][ii] = Tuple{DateTime, Bool, String}[]
         end
         
         error_summary = isempty(validation_result[:errors]) ? "OK" : join(validation_result[:errors], "; ")
-        push!(s[:data_validation_history][ai], (now(), validation_result[:is_valid], error_summary))
+        push!(s[:data_validation_history][ii], (now(), validation_result[:is_valid], error_summary))
         
         # Keep only last 100 validation results
-        if length(s[:data_validation_history][ai]) > 100
-            s[:data_validation_history][ai] = s[:data_validation_history][ai][end-99:end]
+        if length(s[:data_validation_history][ii]) > 100
+            s[:data_validation_history][ii] = s[:data_validation_history][ii][end-99:end]
         end
         
     catch e
-        @error "OHLCV validation failed" asset=ai error=e
+        @error "OHLCV validation failed" asset=ii error=e
         validation_result[:is_valid] = false
         push!(validation_result[:errors], "Validation error: $(string(e))")
     end
@@ -433,15 +434,15 @@ function cleanup_data_watchers!(s::SC)
     
     watchers = get(s.attrs, :data_watchers, Dict())
     
-    for (ai, watcher_ref) in watchers
+    for (ii, watcher_ref) in watchers
         try
             # Stop watcher if it's active
             if get(watcher_ref, :status, :inactive) == :active
                 watcher_ref[:status] = :stopped
-                @debug "Stopped data watcher" asset=ai
+                @debug "Stopped data watcher" asset=ii
             end
         catch e
-            @error "Failed to stop data watcher" asset=ai error=e
+            @error "Failed to stop data watcher" asset=ii error=e
         end
     end
     

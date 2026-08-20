@@ -1,7 +1,8 @@
 # Unit tests for parameter management
 using Test
 using StrategyFramework
-using Dates
+using Planar.Engine.TimeTicks
+using Planar.Engine.TimeTicks: Dates
 
 @testset "Parameter Management Tests" begin
     
