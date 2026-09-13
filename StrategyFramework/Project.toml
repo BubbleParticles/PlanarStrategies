@@ -15,6 +15,9 @@ LoggingExtras = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 Statistics = "1.11.1"
 Planar = "1.8.0"
 PlanarStrategyTools = "0.1.0"
+[sources]
+Planar = {path = "../../../Planar"}
+PlanarStrategyTools = {path = "../../../PlanarStrategyTools"}
 
 [StrategyFramework]
 include_file = "src/StrategyFramework.jl"

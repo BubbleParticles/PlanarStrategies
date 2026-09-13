@@ -13,6 +13,9 @@ OnlineTechnicalIndicators = "0.1.2"
 Statistics = "1.11.1"
 Planar = "1.8.0"
 PlanarStrategyTools = "0.1.0"
+[sources]
+Planar = {path = "../../../Planar"}
+PlanarStrategyTools = {path = "../../../PlanarStrategyTools"}
 
 [QuickStart]
 include_file = "src/QuickStart.jl"
