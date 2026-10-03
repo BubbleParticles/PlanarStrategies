@@ -9,13 +9,12 @@ PlanarOptim = "01937fd2-c099-442f-ae89-75fa208aad36"
 Planar = "646fb1a4-6797-441d-ad18-3bdbde2eb86b"
 PlanarCore = "a475c859-e357-4be2-a5e3-43038ab4b158"
 
-[sources]
-PlanarCore = {path = "../../../PlanarCore"}
-PlanarOptim = {path = "../../../PlanarOptim"}
-Planar = {path = "../../../Planar"}
-
 [compat]
 OnlineTechnicalIndicators = "0.1.2"
+julia = "1.13"
+Planar = "1"
+PlanarCore = "1"
+PlanarOptim = "0.1"
 
 [strategy]
 margin = "Isolated"

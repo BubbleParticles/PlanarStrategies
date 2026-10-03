@@ -5,6 +5,6 @@ authors = ["zbc"]
 
 [deps]
 Planar = "646fb1a4-6797-441d-ad18-3bdbde2eb86b"
-
-[sources]
-Planar = {path = "../../../Planar"}
+[compat]
+Planar = "1"
+julia = "1.13"

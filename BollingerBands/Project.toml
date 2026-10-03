@@ -10,10 +10,11 @@ PlanarCore = "a475c859-e357-4be2-a5e3-43038ab4b158"
 
 [compat]
 OnlineTechnicalIndicators = "0.1.2"
+julia = "1.13"
+Planar = "1"
+PlanarCore = "1"
 
 [strategy]
 margin = "Isolated"
 mode = "Paper"
 
-[sources]
-PlanarCore = {path = "../../../PlanarCore"}
